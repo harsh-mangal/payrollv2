@@ -56,7 +56,7 @@ app.use((err, _req, res, _next) => {
   res.status(500).json({ ok: false, error: "INTERNAL_ERROR" });
 });
 
-const PORT = process.env.PORT || 3010;
+const PORT = process.env.PORT || 3018;
 const MONGO_URL = process.env.MONGO_URL;
 
 if (!MONGO_URL) {
