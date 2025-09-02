@@ -5,7 +5,11 @@ import Sidebar from "./components/Sidebar";
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
 import Toast from "./components/Toast";
-import ClientsPage from "./pages/ClientsPage";
+import QuotationsPage from "./pages/QuotationsPage";
+// NEW: split pages
+import ClientsListPage from "./pages/ClientsListPage";
+import ClientDetailPage from "./pages/ClientDetailPage";
+
 import InvoicesPage from "./pages/InvoicesPage";
 import PaymentsPage from "./pages/PaymentsPage";
 import LedgerPage from "./pages/LedgerPage";
@@ -17,13 +21,14 @@ import RequireAuth from "./components/RequireAuth";
 import { apiGet } from "./lib/api";
 
 export default function App() {
-  const [baseUrl, setBaseUrl] = useState("https://apipayroll.dodunsoftsolutions.com//api");
+  const [baseUrl, setBaseUrl] = useState("http://localhost:3018/api");
   const [toast, setToast] = useState(null);
+
   const [clients, setClients] = useState([]);
   const [selectedClientId, setSelectedClientId] = useState("");
   const [ledger, setLedger] = useState(null);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Sidebar state for mobile
 
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const location = useLocation();
   const isLoginPage = location.pathname === "/login";
 
@@ -32,9 +37,7 @@ export default function App() {
     setTimeout(() => setToast(null), 3500);
   };
 
-  const toggleSidebar = () => {
-    setIsSidebarOpen(!isSidebarOpen);
-  };
+  const toggleSidebar = () => setIsSidebarOpen((s) => !s);
 
   async function reloadClients() {
     try {
@@ -61,7 +64,10 @@ export default function App() {
   async function openLedgerPdf() {
     if (!selectedClientId) return;
     try {
-      const data = await apiGet(baseUrl, `/clients/${selectedClientId}/ledger/pdf`);
+      const data = await apiGet(
+        baseUrl,
+        `/clients/${selectedClientId}/ledger/pdf`
+      );
       window.open(data.url, "_blank");
     } catch (e) {
       showToast({ type: "error", text: e.message });
@@ -70,10 +76,12 @@ export default function App() {
 
   useEffect(() => {
     reloadClients();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [baseUrl]);
 
   useEffect(() => {
     if (selectedClientId) loadLedger();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedClientId]);
 
   const commonProps = {
@@ -87,10 +95,10 @@ export default function App() {
 
   return (
     <div className="flex min-h-screen bg-gray-50">
-      {/* Sidebar (hidden on login page) */}
-      {!isLoginPage && <Sidebar isOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />}
+      {!isLoginPage && (
+        <Sidebar isOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />
+      )}
 
-      {/* Main Content */}
       <div className="flex flex-col flex-1">
         {!isLoginPage && <Navbar toggleSidebar={toggleSidebar} />}
 
@@ -106,6 +114,7 @@ export default function App() {
                 />
               }
             />
+
             <Route
               path="/"
               element={
@@ -115,13 +124,42 @@ export default function App() {
               }
             />
             <Route
-              path="/clients"
+              path="/quotations"
               element={
                 <RequireAuth>
-                  <ClientsPage {...commonProps} />
+                  <QuotationsPage
+                    baseUrl={baseUrl}
+                    clients={clients}
+                    showToast={showToast}
+                  />
                 </RequireAuth>
               }
             />
+            {/* Clients list page */}
+            <Route
+              path="/clients"
+              element={
+                <RequireAuth>
+                  <ClientsListPage
+                    baseUrl={baseUrl}
+                    clients={clients}
+                    reloadClients={reloadClients}
+                    showToast={showToast}
+                  />
+                </RequireAuth>
+              }
+            />
+
+            {/* Client detail page (includes create service / credentials / meetings) */}
+            <Route
+              path="/clients/:id"
+              element={
+                <RequireAuth>
+                  <ClientDetailPage baseUrl={baseUrl} showToast={showToast} />
+                </RequireAuth>
+              }
+            />
+
             <Route
               path="/invoices"
               element={
@@ -174,13 +212,13 @@ export default function App() {
                 </RequireAuth>
               }
             />
+
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
 
           <Toast toast={toast} />
         </main>
 
-        {/* Footer (hidden on login page) */}
         {!isLoginPage && <Footer />}
       </div>
     </div>

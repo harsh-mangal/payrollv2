@@ -432,3 +432,34 @@ export async function generateLedgerPDF({ client, entries }, outPath) {
     stream.on("error", reject);
   });
 }
+// server/utils/pdf.js (add this next to other exports)
+export async function generateQuotationPDF({ quotation, client }, outPath) {
+  // If your generateInvoicePDF already supports custom headers,
+  // you can delegate to it. Otherwise, implement your own template here.
+  const { generateInvoicePDF } = await import("./pdf.js"); // self import if same file exports both
+  const fakeInvoice = {
+    invoiceNo: quotation.quoteNo,       // show quote number in the PDF
+    issueDate: quotation.issueDate,
+    periodStart: undefined,
+    periodEnd: quotation.validUntil,
+    lineItems: quotation.lineItems.map(it => ({
+      description: it.description,
+      // map to invoice unit fields so the PDF template can render
+      unitPriceExclGst: it.unitPriceExclGst || 0,
+      unitPriceInclGst: it.unitPriceInclGst || 0,
+      qty: it.qty || 1,
+      originalAmount: it.originalAmount,
+    })),
+    extraAmount: quotation.extraAmount,
+    gstMode: quotation.gstMode,
+    subtotalExclGst: quotation.subtotalExclGst,
+    gstRate: quotation.gstRate,
+    gstAmount: quotation.gstAmount,
+    totalInclGst: quotation.totalInclGst,
+    remarks: quotation.notes,
+    // custom flag so your template can switch heading to "Quotation"
+    isQuotation: true,
+  };
+
+  return generateInvoicePDF({ invoice: fakeInvoice, client, payments: [] }, outPath);
+}

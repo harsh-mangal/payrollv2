@@ -39,6 +39,9 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
     { name: "Staff & Payroll", icon: <Users2 size={20} />, path: "/staff" },
     { name: "Expenses", icon: <Receipt size={20} />, path: "/expenses" },
     { name: "Net Balance", icon: <Scale size={20} />, path: "/balance" },
+        { name: "clients", icon: <Receipt size={20} />, path: "/clients" },
+    { name: "quotations", icon: <Scale size={20} />, path: "/quotations" },
+  
   ];
 
   return (
