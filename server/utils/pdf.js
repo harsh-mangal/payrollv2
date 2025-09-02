@@ -25,20 +25,15 @@ function labelForAmount(gstMode) {
 }
 
 // Prefer new service-based amounts; fall back to legacy (qty*rate) if present
-function computeLineAmount(li, gstMode) {
-  if (gstMode === "INCLUSIVE") {
-    if (li.amountInclGst != null) return Number(li.amountInclGst) || 0;
-    // legacy fallback:
-    const qty = Number(li.qty || 1);
-    const rate = Number(li.unitPriceInclGst || 0);
-    return round2(qty * rate);
+function computeLineAmount(lineItem, gstMode) {
+  if (gstMode === 'INCLUSIVE') {
+    return Number(lineItem.unitPriceInclGst || 0);
+  } else if (gstMode === 'EXCLUSIVE') {
+    return Number(lineItem.unitPriceExclGst || 0);
+  } else {
+    // NOGST
+    return Number(lineItem.unitPriceExclGst || lineItem.unitPriceInclGst || 0);
   }
-  // EXCLUSIVE or NOGST
-  if (li.amountExclGst != null) return Number(li.amountExclGst) || 0;
-  // legacy fallback:
-  const qty = Number(li.qty || 1);
-  const rate = Number(li.unitPriceExclGst || 0);
-  return round2(qty * rate);
 }
 
 /* Simple table row helper */
@@ -83,7 +78,7 @@ function hr(doc, x1, x2, y) {
 /* ----------------------------- Invoice PDF ----------------------------- */
 
 export async function generateInvoicePDF(
-  { invoice, client, payments },
+  { invoice, client, totalDays, payments },
   outPath
 ) {
   return new Promise((resolve, reject) => {
@@ -99,16 +94,41 @@ export async function generateInvoicePDF(
     doc
       .font("Helvetica-Bold")
       .fontSize(18)
-      .text("TAX INVOICE", left, 36, { align: "right" });
-    doc.moveDown(0.5);
+      .fillColor("#222222")
+      .text("INVOICE", left, 36, { align: "right" });
 
-    const hdrX = left;
     let y = 36;
 
-    // Company (optional): If you want, add your company block here
+    // Left: Bill To
+    y += 40;
+    doc.font("Helvetica-Bold").fontSize(10).text("Bill To", left, y);
+    y += 18;
+    doc.font("Helvetica").fontSize(9).fillColor("#000000");
+    doc.text(client?.name || "", left, y);
+    y += 14;
+    doc.fontSize(8);
+    if (client?.gstin) {
+      doc.text(`GSTIN: ${client.gstin}`, left, y);
+      y += 12;
+    }
+    if (client?.address) {
+      doc.text(client.address, left, y, { width: 280 });
+      y = doc.y + 6;
+    }
+    if (client?.phone) {
+      doc.text(`Phone: ${client.phone}`, left, y);
+      y += 12;
+    }
+    if (client?.email) {
+      doc.text(`Email: ${client.email}`, left, y);
+      y += 12;
+    }
 
-    // Invoice meta (right aligned block)
-    doc.font("Helvetica").fontSize(10);
+    // Right: Invoice Meta
+    const metaX = right - 240;
+    let metaY = 80;
+    doc.font("Helvetica").fontSize(8).fillColor("#000000");
+
     const meta = [
       ["Invoice No", invoice.invoiceNo],
       ["Date", dayjs(invoice.issueDate).format("DD MMM YYYY")],
@@ -120,10 +140,7 @@ export async function generateInvoicePDF(
             ).format("DD MMM YYYY")}`,
           ]
         : null,
-      [
-        "Billing Type",
-        invoice.billingType === "MONTHLY" ? "Monthly" : "One Time",
-      ],
+      ["Billing Type", invoice.billingType === "MONTHLY" ? "Monthly" : "One Time"],
       [
         "GST Mode",
         invoice.gstMode === "INCLUSIVE"
@@ -137,142 +154,138 @@ export async function generateInvoicePDF(
         : null,
     ].filter(Boolean);
 
-    // Left: Bill To
-    y += 8;
-    doc.font("Helvetica-Bold").fontSize(12).text("Bill To", hdrX, y);
-    y += 16;
-    doc.font("Helvetica").fontSize(11);
-    doc.text(client?.name || "", hdrX, y);
-    y += 14;
-    doc.fontSize(10);
-    if (client?.gstin) {
-      doc.text(`GSTIN: ${client.gstin}`, hdrX, y);
-      y += 12;
-    }
-    if (client?.address) {
-      doc.text(client.address, hdrX, y, { width: 300 });
-      y = doc.y + 6;
-    }
-    if (client?.phone) {
-      doc.text(`Phone: ${client.phone}`, hdrX, y);
-      y += 12;
-    }
-    if (client?.email) {
-      doc.text(`Email: ${client.email}`, hdrX, y);
-      y += 12;
-    }
-
-    // Right: meta
-    let metaY = 60;
-    const metaX = right - 220;
-    doc.font("Helvetica").fontSize(10);
     meta.forEach(([k, v]) => {
-      doc.font("Helvetica-Bold").text(`${k}:`, metaX, metaY, { width: 90 });
+      doc.font("Helvetica-Bold").text(`${k}:`, metaX, metaY, { width: 100 });
       doc
         .font("Helvetica")
-        .text(String(v ?? ""), metaX + 95, metaY, {
-          width: 120,
-          align: "right",
-        });
+        .text(String(v ?? ""), metaX + 105, metaY, { width: 130, align: "right" });
       metaY += 14;
     });
 
-    // Move below the taller of left/right blocks
-    y = Math.max(y + 8, metaY + 8);
-    hr(doc, left, right, y);
-    y += 12;
+    // Separator
+    y = Math.max(y + 10, metaY + 10);
+    doc
+      .moveTo(left, y)
+      .lineTo(right, y)
+      .dash(3, { space: 2 })
+      .strokeColor("#CCCCCC")
+      .stroke()
+      .undash();
+    y += 16;
 
     /* Items Table */
-    const colX = left;
-    const tableWidths = [right - left - 140, 140]; // Description | Amount
+    // Dynamically set table columns based on totalDays
+    const hasTotalDays = totalDays && totalDays > 0;
+    const tableWidths = hasTotalDays
+      ? [right - left - 280, 90, 90, 100] // Description | Monthly Price | Period Days | Amount
+      : [right - left - 100, 100]; // Description | Amount
+    const headers = hasTotalDays
+      ? ["Description", "Monthly Price", "Period Days", "Amount (Excl. GST)"]
+      : ["Description", "Amount (Excl. GST)"];
+    const aligns = hasTotalDays
+      ? ["left", "right", "right", "right"]
+      : ["left", "right"];
+
     const headerFill = "#F5F6FA";
 
     // Header row
-    y = drawRow(
-      doc,
-      colX,
-      y,
-      tableWidths,
-      ["Description", labelForAmount(invoice.gstMode)],
-      { bold: true, fontSize: 11, fill: headerFill, align: ["left", "right"] }
-    );
-    hr(doc, left, right, y - 4);
+    y = drawRow(doc, left, y, tableWidths, headers, {
+      bold: true,
+      fontSize: 9,
+      fill: headerFill,
+      align: aligns,
+    });
+    y += 2;
 
     // Rows
-    doc.font("Helvetica").fontSize(10).fillColor("#000000");
-
+    let rowIndex = 0;
     (invoice.lineItems || []).forEach((li) => {
       const desc = li.description || "";
       const amt = computeLineAmount(li, invoice.gstMode);
-      y = drawRow(doc, colX, y, tableWidths, [desc, `₹ ${currency(amt)}`], {
-        align: ["left", "right"],
+      const rowData = hasTotalDays
+        ? [
+            desc,
+            li.originalAmount ? `₹ ${currency(li.originalAmount)}` : "",
+            totalDays || "",
+            `₹ ${currency(amt)}`,
+          ]
+        : [desc, `₹ ${currency(amt)}`];
+      const fill = rowIndex % 2 === 0 ? "#FFFFFF" : "#FAFAFA";
+      y = drawRow(doc, left, y, tableWidths, rowData, {
+        align: aligns,
+        fill,
+        fontSize: 8,
       });
-      // Page break (simple)
-      if (y > doc.page.height - 180) {
+      rowIndex++;
+      if (y > doc.page.height - 200) {
         doc.addPage();
         y = 36;
       }
     });
 
-    // Extra amount row (as separate line item)
+    // Extra amount row
     if (Number(invoice.extraAmount || 0) !== 0) {
-      y = drawRow(
-        doc,
-        colX,
-        y,
-        tableWidths,
-        ["Extra Amount", `₹ ${currency(invoice.extraAmount)}`],
-        { bold: false, align: ["left", "right"] }
-      );
+      const rowData = hasTotalDays
+        ? ["Extra Amount", "", "", `₹ ${currency(invoice.extraAmount)}`]
+        : ["Extra Amount", `₹ ${currency(invoice.extraAmount)}`];
+      y = drawRow(doc, left, y, tableWidths, rowData, {
+        align: aligns,
+        fill: "#FAFAFA",
+        fontSize: 8,
+      });
     }
 
-    hr(doc, left, right, y + 4);
-    y += 12;
+    y += 16;
 
-    /* Totals Box (right side) */
-    const boxW = 260;
+    /* Totals Box */
+    const boxW = 280;
     const boxX = right - boxW;
     const lineH = 16;
 
-    const showGst =
-      invoice.gstMode !== "NOGST" && Number(invoice.gstRate || 0) > 0;
+    const showGst = invoice.gstMode !== "NOGST" && Number(invoice.gstRate || 0) > 0;
 
-    // Frame
+    // Calculate row count
+    let rowCount = 3; // Subtotal, Total, Pending
+    if (showGst) rowCount++;
+    rowCount++; // Paid always
+
+    // Box height = rows * lineH + padding (top+bottom = 20px)
+    const boxH = rowCount * lineH + 20;
+
+    // Background box
     doc
-      .roundedRect(boxX, y, boxW, showGst ? 4 * lineH + 24 : 3 * lineH + 24, 6)
-      .strokeColor("#DDDDDD")
+      .roundedRect(boxX, y, boxW, boxH, 8)
+      .strokeColor("#CCCCCC")
+      .lineWidth(1)
       .stroke();
 
     let ty = y + 10;
-    const keyW = 140,
-      valW = boxW - keyW;
+    const keyW = 130;
+    const valW = boxW - keyW - 30;
 
     const row = (k, v, bold = false) => {
       doc
         .font(bold ? "Helvetica-Bold" : "Helvetica")
-        .fontSize(11)
+        .fontSize(9)
         .fillColor("#000000");
       doc.text(k, boxX + 10, ty, { width: keyW });
-      doc.text(v, boxX + 10 + keyW, ty, { width: valW, align: "right" });
+      doc.text(v, boxX + keyW + 20, ty, { width: valW, align: "right" });
       ty += lineH;
     };
 
     row("Taxable Value (Subtotal)", `₹ ${currency(invoice.subtotalExclGst)}`);
     if (showGst) {
-      const modeNote = invoice.gstMode === "INCLUSIVE" ? " (incl.)" : "";
-      row(
-        `GST @ ${pct(invoice.gstRate)}%${modeNote}`,
-        `₹ ${currency(invoice.gstAmount)}`
-      );
+      const note = invoice.gstMode === "INCLUSIVE" ? " (incl.)" : "";
+      row(`GST @ ${pct(invoice.gstRate)}%${note}`, `₹ ${currency(invoice.gstAmount)}`);
     }
-    row("Total (Gross)", `₹ ${currency(invoice.totalInclGst)}`, true);
+    row("Total (Gross)", `₹ ${currency(invoice.totalInclGST)}`, true);
     row("Paid", `₹ ${currency(invoice.paidAmount)}`);
     row("Pending", `₹ ${currency(invoice.pendingAmount)}`, true);
 
-    y = ty + 8;
+    y = ty + 12;
 
-    // Notes
-    doc.font("Helvetica").fontSize(9).fillColor("#333333");
+    /* Notes */
+    doc.font("Helvetica").fontSize(8).fillColor("#555555");
     if (invoice.gstMode === "INCLUSIVE") {
       doc.text("Note: Line item prices are GST-inclusive.", left, y);
       y += 12;
@@ -281,40 +294,34 @@ export async function generateInvoicePDF(
       y += 12;
     }
 
-    // Remarks
+    /* Remarks */
     if (invoice.remarks) {
-      doc
-        .font("Helvetica-Bold")
-        .fontSize(10)
-        .fillColor("#000000")
-        .text("Remarks", left, y);
-      y += 12;
-      doc
-        .font("Helvetica")
-        .fontSize(10)
-        .fillColor("#000000")
-        .text(invoice.remarks, left, y, { width: right - left });
-      y = doc.y + 8;
+      doc.font("Helvetica-Bold").fontSize(9).fillColor("#000000").text("Remarks", left, y);
+      y += 14;
+      doc.font("Helvetica").fontSize(9).fillColor("#000000").text(invoice.remarks, left, y, {
+        width: right - left,
+      });
+      y = doc.y + 12;
     }
 
-    // Payments (optional list)
+    /* Payments */
     if (payments?.length) {
       y += 8;
-      doc.font("Helvetica-Bold").fontSize(11).text("Payments", left, y);
-      y += 12;
+      doc.font("Helvetica-Bold").fontSize(9).text("Payments", left, y);
+      y += 14;
       payments.forEach((p) => {
         const line = `${dayjs(p.date).format("DD MMM YYYY")}  •  ₹${currency(
           p.amount
         )}  •  ${p.mode || "—"}${p.slipRef ? `  •  Ref: ${p.slipRef}` : ""}`;
-        doc.font("Helvetica").fontSize(10).text(line, left, y);
+        doc.font("Helvetica").fontSize(8).text(line, left, y);
         y += 14;
       });
     }
 
-    // Footer (simple)
-    doc.font("Helvetica").fontSize(9).fillColor("#888888");
+    /* Footer */
+    doc.font("Helvetica").fontSize(8).fillColor("#777777");
     doc.text(
-      "This is a computer-generated document. No signature required.",
+      "This is a computer-generated invoice. No signature required.",
       left,
       doc.page.height - 50,
       { align: "center", width: right - left }
@@ -325,6 +332,7 @@ export async function generateInvoicePDF(
     stream.on("error", reject);
   });
 }
+
 
 /* ----------------------------- Ledger PDF ----------------------------- */
 

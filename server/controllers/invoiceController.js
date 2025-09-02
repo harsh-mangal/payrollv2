@@ -27,9 +27,11 @@ export const createInvoice = async (req, res) => {
       lineItems = [],
       extraAmount = 0,
       remarks,
+      totalDays,
       gstMode = "EXCLUSIVE",
       gstRate: gstRateOverride,
     } = req.body;
+    
 
     // ---- Validate client ----
     const client = await Client.findById(clientId);
@@ -82,6 +84,14 @@ export const createInvoice = async (req, res) => {
       totalInclGst = subtotalExclGst;
     }
 
+    const transformedLineItems = lineItems.map(item => ({
+      description: item.description,
+      unitPriceInclGst: item.amountInclGst || 0, // Map amountInclGst to unitPriceInclGst
+      unitPriceExclGst: item.amountExclGst || 0, // Map amountExclGst if provided
+      qty: item.qty || undefined, // Only include qty if provided, avoid default
+      originalAmount: item.originalAmount
+    }));
+
     // ---- Create invoice ----
     const invoice = await Invoice.create({
       clientId,
@@ -90,7 +100,7 @@ export const createInvoice = async (req, res) => {
       issueDate: issueDate ? new Date(issueDate) : new Date(),
       periodStart: periodStart ? new Date(periodStart) : undefined,
       periodEnd: periodEnd ? new Date(periodEnd) : undefined,
-      lineItems,
+      lineItems: transformedLineItems,
       extraAmount: extra,
       remarks,
       gstMode,
@@ -131,8 +141,8 @@ export const createInvoice = async (req, res) => {
           invoice.pendingAmount <= 0
             ? "PAID"
             : invoice.paidAmount > 0
-            ? "PARTIALLY_PAID"
-            : "DUE";
+              ? "PARTIALLY_PAID"
+              : "DUE";
         await invoice.save();
 
         const afterAdjustBal = round2(afterInvoiceBal - apply);
@@ -149,10 +159,11 @@ export const createInvoice = async (req, res) => {
       }
     }
 
+
     // ---- PDF ----
     ensureUploadsDir();
     const outPath = path.resolve("uploads", `${invoice.invoiceNo}.pdf`);
-    await generateInvoicePDF({ invoice, client, payments: [] }, outPath);
+    await generateInvoicePDF({ invoice,totalDays, client, payments: [] }, outPath);
     invoice.pdfPath = outPath;
     await invoice.save();
 

@@ -59,7 +59,7 @@ export default function Invoices({
 
   // ---- Calculate period days ----
   const periodDays = useMemo(() => {
-    if (!form.periodStart || !form.periodEnd || form.billingType !== "ONE_TIME") {
+    if (!form.periodStart || !form.periodEnd) {
       return 0;
     }
     const start = new Date(form.periodStart);
@@ -70,11 +70,11 @@ export default function Invoices({
     const diffTime = end - start;
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // Include end date
     return diffDays > 0 ? diffDays : 0;
-  }, [form.periodStart, form.periodEnd, form.billingType]);
+  }, [form.periodStart, form.periodEnd]);
 
-  // ---- Calculate period bills ----
+  // ---- Calculate period bills whenever periodDays > 0 ----
   useEffect(() => {
-    if (form.billingType !== "ONE_TIME" || periodDays <= 0) {
+    if (periodDays <= 0) {
       setPeriodBills([]);
       return;
     }
@@ -111,8 +111,8 @@ export default function Invoices({
     let gstAmount = 0;
     let totalInclGst = 0;
 
-    if (form.billingType === "ONE_TIME" && periodDays > 0) {
-      // Use prorated amounts from periodBills for ONE_TIME billing
+    if (periodDays > 0) {
+      // Use prorated amounts from periodBills when periodDays > 0
       if (gstMode === "INCLUSIVE") {
         const sumInclusive = periodBills.reduce((s, amount) => s + toNum(amount), 0);
         const gross = round2(sumInclusive + extra);
@@ -128,7 +128,7 @@ export default function Invoices({
         totalInclGst = round2(subtotalExclGst + gstAmount);
       }
     } else {
-      // MONTHLY billing or invalid periodDays
+      // No periodDays, use original amounts
       const sumExclusive = form.lineItems.reduce((s, it) => {
         if (gstMode === "INCLUSIVE") return s;
         return s + toNum(it.amountExclGst);
@@ -203,21 +203,23 @@ export default function Invoices({
         gstMode: form.gstMode,
         extraAmount: toNum(form.extraAmount || 0),
         remarks: form.remarks || undefined,
-        lineItems: form.lineItems.map((li, idx) => ({
-          description: li.description,
-          amountExclGst:
-            form.gstMode !== "INCLUSIVE" && form.billingType === "ONE_TIME" && periodDays > 0
-              ? toNum(periodBills[idx] || 0)
-              : form.gstMode !== "INCLUSIVE"
-              ? toNum(li.amountExclGst || 0)
-              : undefined,
-          amountInclGst:
-            form.gstMode === "INCLUSIVE" && form.billingType === "ONE_TIME" && periodDays > 0
-              ? toNum(periodBills[idx] || 0)
-              : form.gstMode === "INCLUSIVE"
-              ? toNum(li.amountInclGst || 0)
-              : undefined,
-        })),
+        totalDays: periodDays,
+        lineItems: form.lineItems.map((li, idx) => {
+          const originalAmount =
+            form.gstMode === "INCLUSIVE" ? toNum(li.amountInclGst) : toNum(li.amountExclGst);
+
+          const proratedAmount =
+            periodDays > 0 ? toNum(periodBills[idx] || 0) : originalAmount;
+
+          return {
+            description: li.description,
+            originalAmount,
+            amountExclGst:
+              form.gstMode !== "INCLUSIVE" ? proratedAmount : undefined,
+            amountInclGst:
+              form.gstMode === "INCLUSIVE" ? proratedAmount : undefined,
+          };
+        }),
       };
       if (form.gstMode !== "NOGST" && form.gstRate !== "") {
         payload.gstRate = toNum(form.gstRate);
@@ -241,8 +243,6 @@ export default function Invoices({
   }
 
   async function openInvoicePdf(inv) {
-    console.log(inv);
-    
     try {
       const data = await apiGet(baseUrl, `/invoices/${inv._id}/pdf`);
       if (!data?.url) throw new Error("PDF URL not available");
@@ -267,8 +267,8 @@ export default function Invoices({
     form.gstMode === "INCLUSIVE"
       ? "Amount (incl. GST)"
       : form.gstMode === "EXCLUSIVE"
-      ? "Amount (excl. GST)"
-      : "Amount";
+        ? "Amount (excl. GST)"
+        : "Amount";
 
   return (
     <>
@@ -448,13 +448,10 @@ export default function Invoices({
               )}
 
               <div className="md:col-span-1 flex justify-center flex-col ml-8">
-                {form.billingType === "ONE_TIME" && periodDays > 0 ? (
-                  <>
-                    <span className="text-sm text-slate-600">{periodDays} days</span>
-                    <span className="text-sm text-slate-600">
-                      ₹ {(periodBills[idx] ?? 0).toFixed(2)}
-                    </span>
-                  </>
+                {periodDays > 0 ? (
+                  <span className="text-sm text-slate-600">
+                    ₹ {(periodBills[idx] ?? 0).toFixed(2)}
+                  </span>
                 ) : (
                   <span className="text-sm text-slate-400">N/A</span>
                 )}
@@ -488,7 +485,7 @@ export default function Invoices({
                 ? "N/A"
                 : `${(totals.gstRate * 100).toFixed(2)} %`}
             </div>
-            {form.billingType === "ONE_TIME" && periodDays > 0 && (
+            {periodDays > 0 && (
               <div>
                 <span className="font-medium">Period Duration:</span> {periodDays} days
               </div>
@@ -497,14 +494,14 @@ export default function Invoices({
 
           <div className="text-sm bg-slate-50 border rounded-xl p-3">
             <div className="flex justify-between">
-              {form.billingType === "ONE_TIME" && periodDays > 0 ? (
+              {periodDays > 0 ? (
                 <>
-                  <span>Prorated Taxable Value (One Time)</span>
+                  <span>Prorated Taxable Value</span>
                   <span>₹ {totals.subtotalExclGst.toFixed(2)}</span>
                 </>
               ) : (
                 <>
-                  <span>Monthly Taxable Value</span>
+                  <span>Taxable Value</span>
                   <span>₹ {totals.subtotalExclGst.toFixed(2)}</span>
                 </>
               )}
@@ -530,6 +527,7 @@ export default function Invoices({
           >
             {creating ? "Creating…" : "Create Invoice"}
           </button>
+
           {lastInvoice && (
             <>
               <button
@@ -538,6 +536,30 @@ export default function Invoices({
               >
                 Open PDF
               </button>
+
+              <button
+                className="px-3 py-1.5 rounded-lg bg-slate-200 text-slate-800 text-sm hover:bg-slate-300"
+                onClick={async () => {
+                  try {
+                    // Fetch PDF URL from backend
+                    const data = await apiGet(baseUrl, `/invoices/${lastInvoice._id}/pdf`);
+                    if (!data?.url) throw new Error("PDF URL not available");
+
+                    // Create temporary <a> element to download
+                    const link = document.createElement("a");
+                    link.href = data.url;
+                    link.download = `${lastInvoice.invoiceNo}.pdf`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                  } catch (e) {
+                    showToast({ type: "error", text: e.message || "Failed to download PDF" });
+                  }
+                }}
+              >
+                Download PDF
+              </button>
+
               <button
                 className="px-3 py-1.5 rounded-lg bg-slate-200 text-slate-800 text-sm hover:bg-slate-300"
                 onClick={() => shareWhatsApp(lastInvoice)}
