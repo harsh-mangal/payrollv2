@@ -17,7 +17,7 @@ import RequireAuth from "./components/RequireAuth";
 import { apiGet } from "./lib/api";
 
 export default function App() {
-  const [baseUrl, setBaseUrl] = useState("http://localhost:3018/api");
+  const [baseUrl, setBaseUrl] = useState("https://apipayroll.dodunsoftsolutions.com//api");
   const [toast, setToast] = useState(null);
   const [clients, setClients] = useState([]);
   const [selectedClientId, setSelectedClientId] = useState("");
