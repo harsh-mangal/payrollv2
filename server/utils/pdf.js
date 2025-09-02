@@ -95,7 +95,7 @@ export async function generateInvoicePDF(
       .font("Helvetica-Bold")
       .fontSize(18)
       .fillColor("#222222")
-      .text("INVOICE", left, 36, { align: "right" });
+      .text("CASH MEMO", left, 36, { align: "right" });
 
     let y = 36;
 

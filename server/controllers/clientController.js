@@ -45,3 +45,23 @@ export const getLedgerPdf = async (req, res) => {
   await generateLedgerPDF({ client, entries }, outPath);
   res.json({ ok: true, url: `${process.env.BASE_URL}/uploads/${path.basename(outPath)}` });
 };
+
+
+export const getAllClientsLedger = async (_req, res) => {
+  try {
+    const clients = await Client.find().sort({ createdAt: 1 }); // all clients
+    const allLedgers = [];
+
+    for (const client of clients) {
+      const entries = await LedgerEntry.find({ clientId: client._id }).sort({ date: 1, createdAt: 1 });
+      allLedgers.push({
+        client,
+        entries
+      });
+    }
+
+    res.json({ ok: true, ledgers: allLedgers });
+  } catch (e) {
+    res.status(400).json({ ok: false, error: e.message });
+  }
+};
