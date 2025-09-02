@@ -24,6 +24,7 @@ export default function Invoices({
   });
   const [creating, setCreating] = useState(false);
   const [lastInvoice, setLastInvoice] = useState(null);
+  const [periodBills, setPeriodBills] = useState([]);
 
   const defaultGst = 0.18;
 
@@ -56,48 +57,109 @@ export default function Invoices({
       lineItems: f.lineItems.filter((_, idx) => idx !== i),
     }));
 
+  // ---- Calculate period days ----
+  const periodDays = useMemo(() => {
+    if (!form.periodStart || !form.periodEnd || form.billingType !== "ONE_TIME") {
+      return 0;
+    }
+    const start = new Date(form.periodStart);
+    const end = new Date(form.periodEnd);
+    if (isNaN(start) || isNaN(end) || end < start) {
+      return 0;
+    }
+    const diffTime = end - start;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // Include end date
+    return diffDays > 0 ? diffDays : 0;
+  }, [form.periodStart, form.periodEnd, form.billingType]);
+
+  // ---- Calculate period bills ----
+  useEffect(() => {
+    if (form.billingType !== "ONE_TIME" || periodDays <= 0) {
+      setPeriodBills([]);
+      return;
+    }
+
+    const bills = form.lineItems.map((li) => {
+      const amount =
+        form.gstMode === "INCLUSIVE"
+          ? toNum(li.amountInclGst)
+          : toNum(li.amountExclGst);
+
+      const startDate = new Date(form.periodStart);
+      if (isNaN(startDate)) return 0;
+
+      const year = startDate.getFullYear();
+      const month = startDate.getMonth();
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+      const prorated = (amount / daysInMonth) * periodDays;
+      return Math.round((prorated + Number.EPSILON) * 100) / 100;
+    });
+
+    setPeriodBills(bills);
+  }, [form, periodDays]);
+
   // ---- Totals (no qty) ----
   const totals = useMemo(() => {
     const gstMode = form.gstMode;
     const gstRate = gstMode === "NOGST" ? 0 : toNum(form.gstRate || defaultGst);
     const extra = toNum(form.extraAmount);
 
-    const sumExclusive = form.lineItems.reduce((s, it) => {
-      if (gstMode === "INCLUSIVE") return s;
-      return s + toNum(it.amountExclGst);
-    }, 0);
-
-    const sumInclusive = form.lineItems.reduce((s, it) => {
-      if (gstMode !== "INCLUSIVE") return s;
-      return s + toNum(it.amountInclGst);
-    }, 0);
+    const round2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
 
     let subtotalExclGst = 0;
     let gstAmount = 0;
     let totalInclGst = 0;
 
-    const round2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
-
-    if (gstMode === "EXCLUSIVE") {
-      subtotalExclGst = round2(sumExclusive + extra);
-      gstAmount = round2(subtotalExclGst * gstRate);
-      totalInclGst = round2(subtotalExclGst + gstAmount);
-    } else if (gstMode === "INCLUSIVE") {
-      const gross = round2(sumInclusive + extra);
-      const divisor = 1 + gstRate;
-      const base = gstRate > 0 ? round2(gross / divisor) : gross;
-      subtotalExclGst = base;
-      gstAmount = round2(gross - base);
-      totalInclGst = gross;
+    if (form.billingType === "ONE_TIME" && periodDays > 0) {
+      // Use prorated amounts from periodBills for ONE_TIME billing
+      if (gstMode === "INCLUSIVE") {
+        const sumInclusive = periodBills.reduce((s, amount) => s + toNum(amount), 0);
+        const gross = round2(sumInclusive + extra);
+        const divisor = 1 + gstRate;
+        const base = gstRate > 0 ? round2(gross / divisor) : gross;
+        subtotalExclGst = base;
+        gstAmount = round2(gross - base);
+        totalInclGst = gross;
+      } else {
+        // EXCLUSIVE or NOGST
+        subtotalExclGst = round2(periodBills.reduce((s, amount) => s + toNum(amount), 0) + extra);
+        gstAmount = gstMode === "NOGST" ? 0 : round2(subtotalExclGst * gstRate);
+        totalInclGst = round2(subtotalExclGst + gstAmount);
+      }
     } else {
-      // NOGST
-      subtotalExclGst = round2(sumExclusive + extra);
-      gstAmount = 0;
-      totalInclGst = subtotalExclGst;
+      // MONTHLY billing or invalid periodDays
+      const sumExclusive = form.lineItems.reduce((s, it) => {
+        if (gstMode === "INCLUSIVE") return s;
+        return s + toNum(it.amountExclGst);
+      }, 0);
+
+      const sumInclusive = form.lineItems.reduce((s, it) => {
+        if (gstMode !== "INCLUSIVE") return s;
+        return s + toNum(it.amountInclGst);
+      }, 0);
+
+      if (gstMode === "EXCLUSIVE") {
+        subtotalExclGst = round2(sumExclusive + extra);
+        gstAmount = round2(subtotalExclGst * gstRate);
+        totalInclGst = round2(subtotalExclGst + gstAmount);
+      } else if (gstMode === "INCLUSIVE") {
+        const gross = round2(sumInclusive + extra);
+        const divisor = 1 + gstRate;
+        const base = gstRate > 0 ? round2(gross / divisor) : gross;
+        subtotalExclGst = base;
+        gstAmount = round2(gross - base);
+        totalInclGst = gross;
+      } else {
+        // NOGST
+        subtotalExclGst = round2(sumExclusive + extra);
+        gstAmount = 0;
+        totalInclGst = subtotalExclGst;
+      }
     }
 
     return { gstRate, subtotalExclGst, gstAmount, totalInclGst };
-  }, [form, defaultGst]);
+  }, [form, defaultGst, periodBills, periodDays]);
 
   const validate = () => {
     if (!form.clientId && !selectedClientId) {
@@ -141,14 +203,18 @@ export default function Invoices({
         gstMode: form.gstMode,
         extraAmount: toNum(form.extraAmount || 0),
         remarks: form.remarks || undefined,
-        lineItems: form.lineItems.map((li) => ({
+        lineItems: form.lineItems.map((li, idx) => ({
           description: li.description,
           amountExclGst:
-            form.gstMode !== "INCLUSIVE"
+            form.gstMode !== "INCLUSIVE" && form.billingType === "ONE_TIME" && periodDays > 0
+              ? toNum(periodBills[idx] || 0)
+              : form.gstMode !== "INCLUSIVE"
               ? toNum(li.amountExclGst || 0)
               : undefined,
           amountInclGst:
-            form.gstMode === "INCLUSIVE"
+            form.gstMode === "INCLUSIVE" && form.billingType === "ONE_TIME" && periodDays > 0
+              ? toNum(periodBills[idx] || 0)
+              : form.gstMode === "INCLUSIVE"
               ? toNum(li.amountInclGst || 0)
               : undefined,
         })),
@@ -175,6 +241,8 @@ export default function Invoices({
   }
 
   async function openInvoicePdf(inv) {
+    console.log(inv);
+    
     try {
       const data = await apiGet(baseUrl, `/invoices/${inv._id}/pdf`);
       if (!data?.url) throw new Error("PDF URL not available");
@@ -223,9 +291,7 @@ export default function Invoices({
         </div>
 
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-slate-600">
-            Issue Date
-          </label>
+          <label className="text-xs font-medium text-slate-600">Issue Date</label>
           <input
             className="px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 w-full"
             type="date"
@@ -235,9 +301,7 @@ export default function Invoices({
         </div>
 
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-slate-600">
-            Period Start
-          </label>
+          <label className="text-xs font-medium text-slate-600">Period Start</label>
           <input
             className="px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 w-full"
             type="date"
@@ -248,9 +312,7 @@ export default function Invoices({
         </div>
 
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-slate-600">
-            Period End
-          </label>
+          <label className="text-xs font-medium text-slate-600">Period End</label>
           <input
             className="px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 w-full"
             type="date"
@@ -261,9 +323,7 @@ export default function Invoices({
         </div>
 
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-slate-600">
-            Billing Type
-          </label>
+          <label className="text-xs font-medium text-slate-600">Billing Type</label>
           <select
             className="px-3 py-2 rounded-lg border border-gray-300 text-sm"
             value={form.billingType}
@@ -288,13 +348,11 @@ export default function Invoices({
                   m === "INCLUSIVE"
                     ? {
                         description: li.description,
-                        amountInclGst:
-                          li.amountInclGst ?? li.amountExclGst ?? 0,
+                        amountInclGst: li.amountInclGst ?? li.amountExclGst ?? 0,
                       }
                     : {
                         description: li.description,
-                        amountExclGst:
-                          li.amountExclGst ?? li.amountInclGst ?? 0,
+                        amountExclGst: li.amountExclGst ?? li.amountInclGst ?? 0,
                       }
                 ),
               }));
@@ -322,9 +380,7 @@ export default function Invoices({
         </div>
 
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-slate-600">
-            Extra Amount
-          </label>
+          <label className="text-xs font-medium text-slate-600">Extra Amount</label>
           <input
             className="px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 w-full"
             type="number"
@@ -365,12 +421,10 @@ export default function Invoices({
               className="grid grid-cols-1 md:grid-cols-10 gap-2 items-center bg-slate-50 rounded-xl p-3 border"
             >
               <input
-                className="px-3 py-2 rounded-lg border text-sm md:col-span-7 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="px-3 py-2 rounded-lg border text-sm md:col-span-6 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 placeholder="Description (e.g., Monthly Digital Marketing Retainer)"
                 value={li.description}
-                onChange={(e) =>
-                  updateLine(idx, { description: e.target.value })
-                }
+                onChange={(e) => updateLine(idx, { description: e.target.value })}
               />
 
               {form.gstMode === "INCLUSIVE" ? (
@@ -380,9 +434,7 @@ export default function Invoices({
                   step="0.01"
                   placeholder={rateLabel}
                   value={li.amountInclGst ?? 0}
-                  onChange={(e) =>
-                    updateLine(idx, { amountInclGst: e.target.value })
-                  }
+                  onChange={(e) => updateLine(idx, { amountInclGst: e.target.value })}
                 />
               ) : (
                 <input
@@ -391,11 +443,22 @@ export default function Invoices({
                   step="0.01"
                   placeholder={rateLabel}
                   value={li.amountExclGst ?? 0}
-                  onChange={(e) =>
-                    updateLine(idx, { amountExclGst: e.target.value })
-                  }
+                  onChange={(e) => updateLine(idx, { amountExclGst: e.target.value })}
                 />
               )}
+
+              <div className="md:col-span-1 flex justify-center flex-col ml-8">
+                {form.billingType === "ONE_TIME" && periodDays > 0 ? (
+                  <>
+                    <span className="text-sm text-slate-600">{periodDays} days</span>
+                    <span className="text-sm text-slate-600">
+                      ₹ {(periodBills[idx] ?? 0).toFixed(2)}
+                    </span>
+                  </>
+                ) : (
+                  <span className="text-sm text-slate-400">N/A</span>
+                )}
+              </div>
 
               <div className="md:col-span-1 flex justify-end">
                 <button
@@ -425,13 +488,28 @@ export default function Invoices({
                 ? "N/A"
                 : `${(totals.gstRate * 100).toFixed(2)} %`}
             </div>
+            {form.billingType === "ONE_TIME" && periodDays > 0 && (
+              <div>
+                <span className="font-medium">Period Duration:</span> {periodDays} days
+              </div>
+            )}
           </div>
 
           <div className="text-sm bg-slate-50 border rounded-xl p-3">
             <div className="flex justify-between">
-              <span>Taxable Value (Subtotal)</span>
-              <span>₹ {totals.subtotalExclGst.toFixed(2)}</span>
+              {form.billingType === "ONE_TIME" && periodDays > 0 ? (
+                <>
+                  <span>Prorated Taxable Value (One Time)</span>
+                  <span>₹ {totals.subtotalExclGst.toFixed(2)}</span>
+                </>
+              ) : (
+                <>
+                  <span>Monthly Taxable Value</span>
+                  <span>₹ {totals.subtotalExclGst.toFixed(2)}</span>
+                </>
+              )}
             </div>
+
             <div className="flex justify-between">
               <span>GST Amount</span>
               <span>₹ {totals.gstAmount.toFixed(2)}</span>
