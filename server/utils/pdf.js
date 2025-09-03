@@ -449,6 +449,7 @@ export async function generateQuotationPDF({ quotation, client }, outPath) {
       unitPriceInclGst: it.unitPriceInclGst || 0,
       qty: it.qty || 1,
       originalAmount: it.originalAmount,
+      BillingType: it.BillingType
     })),
     extraAmount: quotation.extraAmount,
     gstMode: quotation.gstMode,

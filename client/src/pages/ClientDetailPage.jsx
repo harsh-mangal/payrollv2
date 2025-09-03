@@ -4,39 +4,57 @@ import { apiGet, apiPost } from "../lib/api";
 import dayjs from "dayjs";
 import isSameOrBefore from "dayjs/plugin/isSameOrBefore";
 import isSameOrAfter from "dayjs/plugin/isSameOrAfter";
+import Select from "react-select";
 
-// Extend once at module scope
+// Extend dayjs plugins
 dayjs.extend(isSameOrBefore);
 dayjs.extend(isSameOrAfter);
 
 export default function ClientDetailPage({ baseUrl, showToast }) {
   const { id } = useParams();
 
-  // client & tabs data
+  // State management
   const [client, setClient] = useState(null);
   const [credLoading, setCredLoading] = useState(false);
   const [credentials, setCredentials] = useState([]);
   const [meetLoading, setMeetLoading] = useState(false);
   const [meetings, setMeetings] = useState([]);
-
-  // Month-wise invoice controls
-  const [invMonth, setInvMonth] = useState(String(new Date().getMonth() + 1)); // "1".."12"
+  const [invMonth, setInvMonth] = useState(String(new Date().getMonth() + 1));
   const [invYear, setInvYear] = useState(String(new Date().getFullYear()));
   const [invGstMode, setInvGstMode] = useState("EXCLUSIVE");
   const [invCreating, setInvCreating] = useState(false);
+  const [svcSaving, setSvcSaving] = useState(false);
+  const [svcForm, setSvcForm] = useState({
+    kind: "HOSTING",
+    billingType: "MONTHLY",
+    amountMonthly: 0,
+    amountOneTime: 0,
+    startDate: "",
+    expiryDate: "",
+    notes: "",
+  });
+  const [credForm, setCredForm] = useState({
+    panelName: "",
+    projectName: "",
+    environment: "PROD",
+    url: "",
+    username: "",
+    password: "",
+    tags: "",
+    notes: "",
+  });
+  const [meetingForm, setMeetingForm] = useState({
+    meetingDate: "",
+    title: "",
+    attendees: "",
+    remarks: "",
+    summary: "",
+    nextFollowUp: "",
+  });
+
   const monthNames = [
-    "Jan",
-    "Feb",
-    "Mar",
-    "Apr",
-    "May",
-    "Jun",
-    "Jul",
-    "Aug",
-    "Sep",
-    "Oct",
-    "Nov",
-    "Dec",
+    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
   ];
   const invMonthNum = Number(invMonth);
   const invYearNum = Number(invYear);
@@ -48,52 +66,16 @@ export default function ClientDetailPage({ baseUrl, showToast }) {
     invYearNum >= 2000 &&
     invYearNum <= 2100;
 
-  // services
-  const [svcSaving, setSvcSaving] = useState(false);
-  const [svcForm, setSvcForm] = useState({
-    kind: "HOSTING",
-    billingType: "MONTHLY",
-    amountMonthly: 0,
-    amountOneTime: 0,
-    startDate: "",
-    expiryDate: "",
-    notes: "",
-  });
-
-  // credentials form
-  const [credForm, setCredForm] = useState({
-    panelName: "",
-    projectName: "",
-    environment: "PROD",
-    url: "",
-    username: "",
-    password: "",
-    tags: "",
-    notes: "",
-  });
-
-  // meeting form
-  const [meetingForm, setMeetingForm] = useState({
-    meetingDate: "",
-    title: "",
-    attendees: "",
-    remarks: "",
-    summary: "",
-    nextFollowUp: "",
-  });
-
   const canSubmitService = useMemo(() => {
     if (!svcForm.startDate) return false;
     if (svcForm.billingType === "MONTHLY" && Number(svcForm.amountMonthly) <= 0)
       return false;
-    if (
-      svcForm.billingType === "ONE_TIME" &&
-      Number(svcForm.amountOneTime) <= 0
-    )
+    if (svcForm.billingType === "ONE_TIME" && Number(svcForm.amountOneTime) <= 0)
       return false;
     return true;
   }, [svcForm]);
 
+  // API calls
   async function loadClient() {
     if (!baseUrl || !id) return;
     try {
@@ -134,12 +116,10 @@ export default function ClientDetailPage({ baseUrl, showToast }) {
     loadClient();
     loadCredentials();
     loadMeetings();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [baseUrl, id]);
 
   async function addService() {
-    if (!id) return;
-    if (!canSubmitService) {
+    if (!id || !canSubmitService) {
       showToast({ type: "error", text: "Please fill required service fields" });
       return;
     }
@@ -150,9 +130,7 @@ export default function ClientDetailPage({ baseUrl, showToast }) {
         amountMonthly: Number(svcForm.amountMonthly || 0),
         amountOneTime: Number(svcForm.amountOneTime || 0),
         startDate: svcForm.startDate ? new Date(svcForm.startDate) : new Date(),
-        expiryDate: svcForm.expiryDate
-          ? new Date(svcForm.expiryDate)
-          : undefined,
+        expiryDate: svcForm.expiryDate ? new Date(svcForm.expiryDate) : undefined,
       };
       const res = await apiPost(baseUrl, `/clients/${id}/services`, payload);
       setClient(res.client);
@@ -178,17 +156,14 @@ export default function ClientDetailPage({ baseUrl, showToast }) {
       if (!credForm.panelName || !credForm.username || !credForm.password) {
         showToast({
           type: "error",
-          text: "Panel, Username and Password are required",
+          text: "Panel, Username, and Password are required",
         });
         return;
       }
       const payload = {
         ...credForm,
         tags: credForm.tags
-          ? credForm.tags
-              .split(",")
-              .map((t) => t.trim())
-              .filter(Boolean)
+          ? credForm.tags.split(",").map((t) => t.trim()).filter(Boolean)
           : [],
       };
       const res = await apiPost(baseUrl, `/clients/${id}/credentials`, payload);
@@ -216,17 +191,10 @@ export default function ClientDetailPage({ baseUrl, showToast }) {
     try {
       const payload = {
         ...meetingForm,
-        meetingDate: meetingForm.meetingDate
-          ? new Date(meetingForm.meetingDate)
-          : new Date(),
-        nextFollowUp: meetingForm.nextFollowUp
-          ? new Date(meetingForm.nextFollowUp)
-          : undefined,
+        meetingDate: meetingForm.meetingDate ? new Date(meetingForm.meetingDate) : new Date(),
+        nextFollowUp: meetingForm.nextFollowUp ? new Date(meetingForm.nextFollowUp) : undefined,
         attendees: meetingForm.attendees
-          ? meetingForm.attendees
-              .split(",")
-              .map((s) => s.trim())
-              .filter(Boolean)
+          ? meetingForm.attendees.split(",").map((s) => s.trim()).filter(Boolean)
           : [],
       };
       const res = await apiPost(baseUrl, `/clients/${id}/meetings`, payload);
@@ -259,7 +227,7 @@ export default function ClientDetailPage({ baseUrl, showToast }) {
         clientId: id,
         month: invMonthNum,
         year: invYearNum,
-        gstMode: invGstMode, // "EXCLUSIVE" | "INCLUSIVE" | "NOGST"
+        gstMode: invGstMode,
       };
       const res = await apiPost(baseUrl, `/invoices/from-services`, body);
       showToast({
@@ -279,205 +247,211 @@ export default function ClientDetailPage({ baseUrl, showToast }) {
 
   if (!client) {
     return (
-      <div className="text-slate-600">
-        <Link className="text-indigo-600 hover:underline" to="/clients">
-          ← Back
+      <div className="p-6 max-w-7xl mx-auto">
+        <Link className="text-indigo-600 hover:underline text-sm font-medium" to="/clients">
+          ← Back to Clients
         </Link>
-        <div className="mt-4">Loading client…</div>
+        <div className="mt-4 text-slate-600">Loading client...</div>
       </div>
     );
   }
 
   return (
-    <>
-      <div className="mb-4">
-        <Link className="text-indigo-600 hover:underline" to="/clients">
+    <div className="p-6 max-w-7xl mx-auto">
+      {/* Header */}
+      <div className="mb-6">
+        <Link className="text-indigo-600 hover:underline text-sm font-medium" to="/clients">
           ← Back to Clients
         </Link>
+        <h2 className="text-2xl font-bold text-gray-800 mt-2">{client.name}</h2>
+        <div className="text-sm text-gray-500 flex flex-wrap gap-2">
+          <span>{client.email || "-"}</span>
+          <span>•</span>
+          <span>{client.phone || "-"}</span>
+          <span>•</span>
+          <span>GSTIN: {client.gstin || "-"}</span>
+        </div>
       </div>
 
-      <h2 className="text-xl font-semibold">{client.name}</h2>
-      <div className="text-slate-600 text-sm">
-        {client.email || "-"} • {client.phone || "-"} • GSTIN:{" "}
-        {client.gstin || "-"}
-      </div>
-
-      {/* Month-wise invoice (services) */}
-      <section className="border rounded-xl p-4 mt-6">
-        <h3 className="font-semibold mb-3">Month-wise Invoice (Services)</h3>
-        <div className="grid grid-cols-2 gap-3">
-          <select
-            className="input"
-            value={invMonth}
-            onChange={(e) => setInvMonth(e.target.value)}
-          >
-            {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
-              <option key={m} value={String(m)}>
-                {monthNames[m - 1]}
-              </option>
-            ))}
-          </select>
-          <input
-            className="input"
-            type="number"
-            min={2000}
-            max={2100}
-            value={invYear}
-            onChange={(e) => setInvYear(e.target.value)}
-          />
-          <select
-            className="input col-span-2"
-            value={invGstMode}
-            onChange={(e) => setInvGstMode(e.target.value)}
-          >
-            <option value="EXCLUSIVE">GST Exclusive</option>
-            <option value="INCLUSIVE">GST Inclusive</option>
-            <option value="NOGST">No GST</option>
-          </select>
+      {/* Month-wise Invoice */}
+      <section className="bg-white shadow-sm rounded-lg p-6 mb-6 border border-gray-200">
+        <h3 className="text-lg font-semibold text-gray-800 mb-4">Month-wise Invoice (Services)</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Month</label>
+            <Select
+              className="w-full"
+              value={{ value: invMonth, label: monthNames[invMonthNum - 1] }}
+              onChange={(opt) => setInvMonth(opt.value)}
+              options={monthNames.map((m, i) => ({ value: String(i + 1), label: m }))}
+              classNamePrefix="select"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Year</label>
+            <input
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+              type="number"
+              min={2000}
+              max={2100}
+              value={invYear}
+              onChange={(e) => setInvYear(e.target.value)}
+            />
+          </div>
+          <div className="sm:col-span-2">
+            <label className="block text-sm font-medium text-gray-700 mb-1">GST Mode</label>
+            <Select
+              className="w-full"
+              value={{ value: invGstMode, label: invGstMode.replace("_", " ") }}
+              onChange={(opt) => setInvGstMode(opt.value)}
+              options={[
+                { value: "EXCLUSIVE", label: "GST Exclusive" },
+                { value: "INCLUSIVE", label: "GST Inclusive" },
+                { value: "NOGST", label: "No GST" },
+              ]}
+              classNamePrefix="select"
+            />
+          </div>
           <button
-            className="btn-primary col-span-2"
+            className={`w-full sm:col-span-2 px-4 py-2 rounded-lg text-white text-sm font-medium transition-colors ${
+              invCreating || !monthYearValid
+                ? "bg-gray-400 cursor-not-allowed"
+                : "bg-indigo-600 hover:bg-indigo-700"
+            }`}
             onClick={createMonthInvoiceFromServices}
             disabled={invCreating || !monthYearValid}
           >
-            {invCreating ? "Creating…" : "Create Invoice"}
+            {invCreating ? "Creating..." : "Create Invoice"}
           </button>
         </div>
       </section>
 
-      {/* Body grid */}
-      <div className="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* Body Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Services */}
-        <section className="border rounded-xl p-4 lg:col-span-1">
-          <h3 className="font-semibold mb-3">Create Service</h3>
-          <div className="grid grid-cols-1 gap-3">
-            <label className="text-sm text-slate-600">Kind</label>
-            <select
-              className="input"
-              value={svcForm.kind}
-              onChange={(e) => setSvcForm({ ...svcForm, kind: e.target.value })}
-            >
-              <option value="HOSTING">HOSTING</option>
-              <option value="DIGITAL_MARKETING">DIGITAL_MARKETING</option>
-              <option value="OTHER">OTHER</option>
-            </select>
-
-            <label className="text-sm text-slate-600">Billing Type</label>
-            <select
-              className="input"
-              value={svcForm.billingType}
-              onChange={(e) =>
-                setSvcForm({ ...svcForm, billingType: e.target.value })
-              }
-            >
-              <option value="MONTHLY">MONTHLY</option>
-              <option value="ONE_TIME">ONE_TIME</option>
-            </select>
-
+        <section className="bg-white shadow-sm rounded-lg p-6 border border-gray-200 lg:col-span-1">
+          <h3 className="text-lg font-semibold text-gray-800 mb-4">Create Service</h3>
+          <div className="grid grid-cols-1 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Kind</label>
+              <Select
+                className="w-full"
+                value={{ value: svcForm.kind, label: svcForm.kind }}
+                onChange={(opt) => setSvcForm({ ...svcForm, kind: opt.value })}
+                options={[
+                  { value: "HOSTING", label: "Hosting" },
+                  { value: "DIGITAL_MARKETING", label: "Digital Marketing" },
+                  { value: "OTHER", label: "Other" },
+                ]}
+                classNamePrefix="select"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Billing Type</label>
+              <Select
+                className="w-full"
+                value={{ value: svcForm.billingType, label: svcForm.billingType }}
+                onChange={(opt) => setSvcForm({ ...svcForm, billingType: opt.value })}
+                options={[
+                  { value: "MONTHLY", label: "Monthly" },
+                  { value: "ONE_TIME", label: "One-Time" },
+                ]}
+                classNamePrefix="select"
+              />
+            </div>
             {svcForm.billingType === "MONTHLY" ? (
-              <input
-                className="input"
-                type="number"
-                placeholder="Monthly Amount (GST excl.)"
-                value={svcForm.amountMonthly}
-                onChange={(e) =>
-                  setSvcForm({
-                    ...svcForm,
-                    amountMonthly: Number(e.target.value),
-                  })
-                }
-              />
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Monthly Amount (GST excl.)</label>
+                <input
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                  type="number"
+                  placeholder="Monthly Amount"
+                  value={svcForm.amountMonthly}
+                  onChange={(e) =>
+                    setSvcForm({ ...svcForm, amountMonthly: Number(e.target.value) })
+                  }
+                />
+              </div>
             ) : (
-              <input
-                className="input"
-                type="number"
-                placeholder="One-time Amount (GST excl.)"
-                value={svcForm.amountOneTime}
-                onChange={(e) =>
-                  setSvcForm({
-                    ...svcForm,
-                    amountOneTime: Number(e.target.value),
-                  })
-                }
-              />
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">One-time Amount (GST excl.)</label>
+                <input
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                  type="number"
+                  placeholder="One-time Amount"
+                  value={svcForm.amountOneTime}
+                  onChange={(e) =>
+                    setSvcForm({ ...svcForm, amountOneTime: Number(e.target.value) })
+                  }
+                />
+              </div>
             )}
-
-            <label className="text-sm text-slate-600">Start Date *</label>
-            <input
-              className="input"
-              type="date"
-              value={svcForm.startDate}
-              onChange={(e) =>
-                setSvcForm({ ...svcForm, startDate: e.target.value })
-              }
-            />
-
-            <label className="text-sm text-slate-600">
-              Expiry Date (optional)
-            </label>
-            <input
-              className="input"
-              type="date"
-              value={svcForm.expiryDate}
-              onChange={(e) =>
-                setSvcForm({ ...svcForm, expiryDate: e.target.value })
-              }
-            />
-
-            <textarea
-              className="input min-h-[80px]"
-              placeholder="Notes"
-              value={svcForm.notes}
-              onChange={(e) =>
-                setSvcForm({ ...svcForm, notes: e.target.value })
-              }
-            />
-
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Start Date *</label>
+              <input
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                type="date"
+                value={svcForm.startDate}
+                onChange={(e) => setSvcForm({ ...svcForm, startDate: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Expiry Date (optional)</label>
+              <input
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                type="date"
+                value={svcForm.expiryDate}
+                onChange={(e) => setSvcForm({ ...svcForm, expiryDate: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+              <textarea
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm min-h-[100px]"
+                placeholder="Notes"
+                value={svcForm.notes}
+                onChange={(e) => setSvcForm({ ...svcForm, notes: e.target.value })}
+              />
+            </div>
             <button
-              className="btn-primary"
+              className={`w-full px-4 py-2 rounded-lg text-white text-sm font-medium transition-colors ${
+                !canSubmitService || svcSaving
+                  ? "bg-gray-400 cursor-not-allowed"
+                  : "bg-indigo-600 hover:bg-indigo-700"
+              }`}
               disabled={!canSubmitService || svcSaving}
               onClick={addService}
             >
-              {svcSaving ? "Saving…" : "Add Service"}
+              {svcSaving ? "Saving..." : "Add Service"}
             </button>
           </div>
-
-          <h4 className="font-semibold mt-6 mb-2">Existing Services</h4>
-          <div className="max-h-56 overflow-auto rounded border">
+          <h4 className="text-md font-semibold text-gray-800 mt-6 mb-3">Existing Services</h4>
+          <div className="max-h-56 overflow-auto rounded-lg border border-gray-200">
             <table className="w-full text-sm">
-              <thead className="bg-slate-50 sticky top-0">
+              <thead className="bg-gray-50 sticky top-0">
                 <tr>
-                  <th className="px-3 py-2 text-left">Kind</th>
-                  <th className="px-3 py-2 text-left">Billing</th>
-                  <th className="px-3 py-2 text-left">Amount</th>
-                  <th className="px-3 py-2 text-left">Start</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-700">Kind</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-700">Billing</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-700">Amount</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-700">Start</th>
                 </tr>
               </thead>
               <tbody>
-                {(client.services || [])
-                  .slice()
-                  .reverse()
-                  .map((s, i) => (
-                    <tr key={i} className="hover:bg-slate-50">
-                      <td className="td">{s.kind}</td>
-                      <td className="td">{s.billingType}</td>
-                      <td className="td">
-                        {s.billingType === "MONTHLY"
-                          ? s.amountMonthly
-                          : s.amountOneTime}
-                      </td>
-                      <td className="td">
-                        {s.startDate
-                          ? new Date(s.startDate).toLocaleDateString()
-                          : "-"}
-                      </td>
-                    </tr>
-                  ))}
+                {(client.services || []).slice().reverse().map((s, i) => (
+                  <tr key={i} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 border-t">{s.kind}</td>
+                    <td className="px-4 py-3 border-t">{s.billingType}</td>
+                    <td className="px-4 py-3 border-t">
+                      {s.billingType === "MONTHLY" ? s.amountMonthly : s.amountOneTime}
+                    </td>
+                    <td className="px-4 py-3 border-t">
+                      {s.startDate ? new Date(s.startDate).toLocaleDateString() : "-"}
+                    </td>
+                  </tr>
+                ))}
                 {(client.services || []).length === 0 && (
                   <tr>
-                    <td
-                      colSpan={4}
-                      className="px-3 py-4 text-center text-slate-500"
-                    >
+                    <td colSpan={4} className="px-4 py-4 text-center text-gray-500">
                       No services yet
                     </td>
                   </tr>
@@ -488,137 +462,140 @@ export default function ClientDetailPage({ baseUrl, showToast }) {
         </section>
 
         {/* Credentials */}
-        <section className="border rounded-xl p-4 lg:col-span-2">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="font-semibold">Credentials</h3>
-            {credLoading && (
-              <span className="text-xs text-slate-500">Loading…</span>
-            )}
+        <section className="bg-white shadow-sm rounded-lg p-6 border border-gray-200 lg:col-span-2">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-gray-800">Credentials</h3>
+            {credLoading && <span className="text-xs text-gray-500">Loading...</span>}
           </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <input
-              className="input"
-              placeholder="Panel Name *"
-              value={credForm.panelName}
-              onChange={(e) =>
-                setCredForm({ ...credForm, panelName: e.target.value })
-              }
-            />
-            <input
-              className="input"
-              placeholder="Project"
-              value={credForm.projectName}
-              onChange={(e) =>
-                setCredForm({ ...credForm, projectName: e.target.value })
-              }
-            />
-            <select
-              className="input"
-              value={credForm.environment}
-              onChange={(e) =>
-                setCredForm({ ...credForm, environment: e.target.value })
-              }
-            >
-              <option value="PROD">PROD</option>
-              <option value="STAGING">STAGING</option>
-              <option value="DEV">DEV</option>
-              <option value="OTHER">OTHER</option>
-            </select>
-            <input
-              className="input"
-              placeholder="URL"
-              value={credForm.url}
-              onChange={(e) =>
-                setCredForm({ ...credForm, url: e.target.value })
-              }
-            />
-            <input
-              className="input"
-              placeholder="Username *"
-              value={credForm.username}
-              onChange={(e) =>
-                setCredForm({ ...credForm, username: e.target.value })
-              }
-            />
-            <input
-              className="input"
-              type="password"
-              placeholder="Password *"
-              value={credForm.password}
-              onChange={(e) =>
-                setCredForm({ ...credForm, password: e.target.value })
-              }
-            />
-            <input
-              className="input md:col-span-2"
-              placeholder="Tags (comma separated)"
-              value={credForm.tags}
-              onChange={(e) =>
-                setCredForm({ ...credForm, tags: e.target.value })
-              }
-            />
-            <input
-              className="input md:col-span-2"
-              placeholder="Notes"
-              value={credForm.notes}
-              onChange={(e) =>
-                setCredForm({ ...credForm, notes: e.target.value })
-              }
-            />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Panel Name *</label>
+              <input
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                placeholder="Panel Name"
+                value={credForm.panelName}
+                onChange={(e) => setCredForm({ ...credForm, panelName: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Project</label>
+              <input
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                placeholder="Project"
+                value={credForm.projectName}
+                onChange={(e) => setCredForm({ ...credForm, projectName: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Environment</label>
+              <Select
+                className="w-full"
+                value={{ value: credForm.environment, label: credForm.environment }}
+                onChange={(opt) => setCredForm({ ...credForm, environment: opt.value })}
+                options={[
+                  { value: "PROD", label: "Production" },
+                  { value: "STAGING", label: "Staging" },
+                  { value: "DEV", label: "Development" },
+                  { value: "OTHER", label: "Other" },
+                ]}
+                classNamePrefix="select"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">URL</label>
+              <input
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                placeholder="URL"
+                value={credForm.url}
+                onChange={(e) => setCredForm({ ...credForm, url: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Username *</label>
+              <input
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                placeholder="Username"
+                value={credForm.username}
+                onChange={(e) => setCredForm({ ...credForm, username: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Password *</label>
+              <input
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                type="password"
+                placeholder="Password"
+                value={credForm.password}
+                onChange={(e) => setCredForm({ ...credForm, password: e.target.value })}
+              />
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Tags (comma separated)</label>
+              <input
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                placeholder="Tags (comma separated)"
+                value={credForm.tags}
+                onChange={(e) => setCredForm({ ...credForm, tags: e.target.value })}
+              />
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+              <input
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                placeholder="Notes"
+                value={credForm.notes}
+                onChange={(e) => setCredForm({ ...credForm, notes: e.target.value })}
+              />
+            </div>
             <div className="md:col-span-2">
               <button
                 onClick={async () => {
                   await addCredential();
                   await loadClient();
                 }}
-                className="btn-primary"
+                className="w-full px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition-colors"
               >
                 + Add Credential
               </button>
             </div>
           </div>
-
-          <div className="mt-4 max-h-56 overflow-auto rounded border">
+          <div className="mt-4 max-h-56 overflow-auto rounded-lg border border-gray-200">
             <table className="w-full text-sm">
-              <thead className="bg-slate-50 sticky top-0">
+              <thead className="bg-gray-50 sticky top-0">
                 <tr>
-                  <th className="px-3 py-2 text-left">Panel</th>
-                  <th className="px-3 py-2 text-left">Env</th>
-                  <th className="px-3 py-2 text-left">User</th>
-                  <th className="px-3 py-2 text-left">URL</th>
-                  <th className="px-3 py-2 text-left">Tags</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-700">Panel</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-700">Env</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-700">User</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-700">URL</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-700">Tags</th>
                 </tr>
               </thead>
               <tbody>
                 {credentials.map((cr) => (
-                  <tr key={cr._id} className="hover:bg-slate-50">
-                    <td className="td font-medium">{cr.panelName}</td>
-                    <td className="td">{cr.environment}</td>
-                    <td className="td">{cr.username}</td>
-                    <td className="td">
+                  <tr key={cr._id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 border-t font-medium">{cr.panelName}</td>
+                    <td className="px-4 py-3 border-t">{cr.environment}</td>
+                    <td className="px-4 py-3 border-t">{cr.username}</td>
+                    <td className="px-4 py-3 border-t">
                       {cr.url ? (
                         <a
-                          className="text-indigo-600 underline"
+                          className="text-indigo-600 hover:underline"
                           target="_blank"
                           rel="noreferrer"
                           href={cr.url}
                         >
-                          open
+                          Open
                         </a>
                       ) : (
                         "-"
                       )}
                     </td>
-                    <td className="td">{(cr.tags || []).join(", ") || "-"}</td>
+                    <td className="px-4 py-3 border-t">{(cr.tags || []).join(", ") || "-"}</td>
                   </tr>
                 ))}
                 {credentials.length === 0 && (
                   <tr>
-                    <td
-                      colSpan={5}
-                      className="px-3 py-4 text-center text-slate-500"
-                    >
+                    <td colSpan={5} className="px-4 py-4 text-center text-gray-500">
                       No credentials
                     </td>
                   </tr>
@@ -629,113 +606,111 @@ export default function ClientDetailPage({ baseUrl, showToast }) {
         </section>
 
         {/* Meetings */}
-        <section className="border rounded-xl p-4 lg:col-span-3">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="font-semibold">Meetings</h3>
-            {meetLoading && (
-              <span className="text-xs text-slate-500">Loading…</span>
-            )}
+        <section className="bg-white shadow-sm rounded-lg p-6 border border-gray-200 lg:col-span-3">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-gray-800">Meetings</h3>
+            {meetLoading && <span className="text-xs text-gray-500">Loading...</span>}
           </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <input
-              className="input"
-              type="datetime-local"
-              value={meetingForm.meetingDate}
-              onChange={(e) =>
-                setMeetingForm({ ...meetingForm, meetingDate: e.target.value })
-              }
-            />
-            <input
-              className="input"
-              placeholder="Title"
-              value={meetingForm.title}
-              onChange={(e) =>
-                setMeetingForm({ ...meetingForm, title: e.target.value })
-              }
-            />
-            <input
-              className="input md:col-span-2"
-              placeholder="Attendees (comma separated)"
-              value={meetingForm.attendees}
-              onChange={(e) =>
-                setMeetingForm({ ...meetingForm, attendees: e.target.value })
-              }
-            />
-            <input
-              className="input md:col-span-2"
-              placeholder="Remarks"
-              value={meetingForm.remarks}
-              onChange={(e) =>
-                setMeetingForm({ ...meetingForm, remarks: e.target.value })
-              }
-            />
-            <input
-              className="input md:col-span-2"
-              placeholder="Summary"
-              value={meetingForm.summary}
-              onChange={(e) =>
-                setMeetingForm({ ...meetingForm, summary: e.target.value })
-              }
-            />
-            <input
-              className="input"
-              type="date"
-              value={meetingForm.nextFollowUp}
-              onChange={(e) =>
-                setMeetingForm({ ...meetingForm, nextFollowUp: e.target.value })
-              }
-            />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Meeting Date</label>
+              <input
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                type="datetime-local"
+                value={meetingForm.meetingDate}
+                onChange={(e) => setMeetingForm({ ...meetingForm, meetingDate: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+              <input
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                placeholder="Title"
+                value={meetingForm.title}
+                onChange={(e) => setMeetingForm({ ...meetingForm, title: e.target.value })}
+              />
+            </div>
             <div className="md:col-span-2">
-              <button onClick={addMeeting} className="btn-primary">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Attendees (comma separated)</label>
+              <input
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                placeholder="Attendees"
+                value={meetingForm.attendees}
+                onChange={(e) => setMeetingForm({ ...meetingForm, attendees: e.target.value })}
+              />
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Remarks</label>
+              <input
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                placeholder="Remarks"
+                value={meetingForm.remarks}
+                onChange={(e) => setMeetingForm({ ...meetingForm, remarks: e.target.value })}
+              />
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Summary</label>
+              <input
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                placeholder="Summary"
+                value={meetingForm.summary}
+                onChange={(e) => setMeetingForm({ ...meetingForm, summary: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Next Follow-Up</label>
+              <input
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                type="date"
+                value={meetingForm.nextFollowUp}
+                onChange={(e) => setMeetingForm({ ...meetingForm, nextFollowUp: e.target.value })}
+              />
+            </div>
+            <div className="md:col-span-2">
+              <button
+                onClick={addMeeting}
+                className="w-full px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition-colors"
+              >
                 + Save Meeting
               </button>
             </div>
           </div>
-
-          <div className="mt-4 max-h-72 overflow-auto rounded border">
+          <div className="mt-4 max-h-72 overflow-auto rounded-lg border border-gray-200">
             <table className="w-full text-sm">
-              <thead className="bg-slate-50 sticky top-0">
+              <thead className="bg-gray-50 sticky top-0">
                 <tr>
-                  <th className="px-3 py-2 text-left">When</th>
-                  <th className="px-3 py-2 text-left">Title</th>
-                  <th className="px-3 py-2 text-left">Attendees</th>
-                  <th className="px-3 py-2 text-left">Remarks</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-700">When</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-700">Title</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-700">Attendees</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-700">Remarks</th>
                 </tr>
               </thead>
               <tbody>
                 {meetings.map((m) => (
-                  <tr key={m._id} className="hover:bg-slate-50 align-top">
-                    <td className="td">
-                      {m.meetingDate
-                        ? new Date(m.meetingDate).toLocaleString()
-                        : "-"}
+                  <tr key={m._id} className="hover:bg-gray-50 align-top">
+                    <td className="px-4 py-3 border-t">
+                      {m.meetingDate ? new Date(m.meetingDate).toLocaleString() : "-"}
                       {m.nextFollowUp && (
-                        <div className="text-xs text-amber-700">
+                        <div className="text-xs text-amber-600">
                           Next: {new Date(m.nextFollowUp).toLocaleDateString()}
                         </div>
                       )}
                     </td>
-                    <td className="td">
+                    <td className="px-4 py-3 border-t">
                       <div className="font-medium">{m.title || "-"}</div>
                       {m.summary && (
-                        <div className="text-xs text-slate-500">
-                          {m.summary}
-                        </div>
+                        <div className="text-xs text-gray-500">{m.summary}</div>
                       )}
                     </td>
-                    <td className="td">
+                    <td className="px-4 py-3 border-t">
                       {(m.attendees || []).join(", ") || "-"}
                     </td>
-                    <td className="td">{m.remarks || "-"}</td>
+                    <td className="px-4 py-3 border-t">{m.remarks || "-"}</td>
                   </tr>
                 ))}
                 {meetings.length === 0 && (
                   <tr>
-                    <td
-                      colSpan={4}
-                      className="px-3 py-4 text-center text-slate-500"
-                    >
+                    <td colSpan={4} className="px-4 py-4 text-center text-gray-500">
                       No meetings yet
                     </td>
                   </tr>
@@ -746,11 +721,21 @@ export default function ClientDetailPage({ baseUrl, showToast }) {
         </section>
       </div>
 
-      <style>{`
-        .input { @apply px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 w-full; }
-        .btn-primary { @apply px-3 py-2 rounded-lg bg-indigo-600 text-white text-sm hover:bg-indigo-700; }
-        .td { @apply px-3 py-2 border-t; }
+      {/* React Select custom styles */}
+      <style jsx>{`
+        .select__control {
+          @apply border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500;
+        }
+        .select__menu {
+          @apply border-gray-300 rounded-lg shadow-lg;
+        }
+        .select__option--is-focused {
+          @apply bg-indigo-50;
+        }
+        .select__option--is-selected {
+          @apply bg-indigo-600 text-white;
+        }
       `}</style>
-    </>
+    </div>
   );
 }

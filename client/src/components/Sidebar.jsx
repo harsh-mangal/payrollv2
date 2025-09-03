@@ -24,7 +24,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  // ✅ Close sidebar automatically on mobile route change
+
   useEffect(() => {
     if (!isDesktop && isOpen) {
       toggleSidebar();
@@ -39,22 +39,22 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
     { name: "Staff & Payroll", icon: <Users2 size={20} />, path: "/staff" },
     { name: "Expenses", icon: <Receipt size={20} />, path: "/expenses" },
     { name: "Net Balance", icon: <Scale size={20} />, path: "/balance" },
-        { name: "clients", icon: <Receipt size={20} />, path: "/clients" },
-    { name: "quotations", icon: <Scale size={20} />, path: "/quotations" },
-  
+    { name: "Quotations", icon: <Scale size={20} />, path: "/quotations" },
   ];
 
   return (
     <>
-      {/* Sidebar */}
+      {/* Sidebar - Now properly fixed */}
       <div
-        className={`fixed inset-y-0 left-0 z-50 bg-gray-900 border-r shadow-xl transition-all duration-300
-        ${isDesktop ? (isOpen ? "w-60" : "w-20") : isOpen ? "w-56" : "w-0"}
-        overflow-hidden md:relative md:flex md:flex-col
-        ${isOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}`}
+        className={`fixed inset-y-0 left-0 z-50 bg-gray-900 border-r shadow-xl transition-all duration-300 flex flex-col
+        ${isDesktop 
+          ? (isOpen ? "w-60" : "w-20") 
+          : (isOpen ? "w-56" : "w-0 overflow-hidden")
+        }
+        ${isOpen ? "translate-x-0" : isDesktop ? "translate-x-0" : "-translate-x-full"}`}
       >
         {/* Logo + Toggle */}
-        <div className="flex items-center justify-between p-4 border-b bg-gray-900">
+        <div className="flex items-center justify-between p-4 border-b bg-gray-900 flex-shrink-0">
           {isOpen && (
             <span className="text-lg font-bold text-indigo-600">
               Payroll App
@@ -68,7 +68,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
           </button>
         </div>
 
-        {/* Navigation */}
+        {/* Navigation - Scrollable area */}
         <div className="flex-1 overflow-y-auto p-3">
           <div className="flex flex-col space-y-2">
             {menuItems.map((item, index) => (
@@ -77,10 +77,9 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
                 to={item.path}
                 className={({ isActive }) =>
                   `flex items-center gap-3 px-3 py-2 rounded-xl transition-all duration-200
-                  ${
-                    isActive
-                      ? "bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-md"
-                      : "text-white hover:bg-indigo-50 hover:text-indigo-600"
+                  ${isActive
+                    ? "bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-md"
+                    : "text-white hover:bg-indigo-50 hover:text-indigo-600"
                   }`
                 }
               >

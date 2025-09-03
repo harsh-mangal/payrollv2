@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { apiPost, apiGet } from "../lib/api";
+import Select from 'react-select'
 
 const toNum = (v) => (v === "" || v == null ? 0 : Number(v));
 
@@ -7,7 +8,7 @@ export default function Invoices({
   baseUrl,
   clients = [],
   selectedClientId,
-  showToast = () => {},
+  showToast = () => { },
   onAnyChange,
 }) {
   const [form, setForm] = useState({
@@ -276,19 +277,33 @@ export default function Invoices({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <div className="flex flex-col gap-1">
           <label className="text-xs font-medium text-slate-600">Client</label>
-          <select
-            className="px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 w-full"
-            value={form.clientId || selectedClientId || ""}
-            onChange={(e) => setForm({ ...form, clientId: e.target.value })}
-          >
-            <option value="">Select client…</option>
-            {clients.map((c) => (
-              <option key={c._id} value={c._id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
+          <Select
+            options={clients.map((c) => ({ value: c._id, label: c.name }))}
+            value={clients
+              .map((c) => ({ value: c._id, label: c.name }))
+              .find((o) => o.value === (form.clientId || selectedClientId))}
+            onChange={(selected) => setForm({ ...form, clientId: selected?.value || "" })}
+            placeholder="Select client…"
+            menuPlacement="auto"
+            menuPosition="fixed"
+            className="text-sm"
+            styles={{
+              control: (base, state) => ({
+                ...base,
+                borderRadius: "0.5rem",
+                borderColor: state.isFocused ? "#6366f1" : "#d1d5db", 
+                boxShadow: state.isFocused ? "0 0 0 2px #6366f1" : "none",
+                padding: "2px 4px",
+                "&:hover": { borderColor: "#6366f1" },
+              }),
+              menu: (base) => ({
+                ...base,
+                zIndex: 50,
+              }),
+            }}
+          />
         </div>
+
 
         <div className="flex flex-col gap-1">
           <label className="text-xs font-medium text-slate-600">Issue Date</label>
@@ -347,13 +362,13 @@ export default function Invoices({
                 lineItems: f.lineItems.map((li) =>
                   m === "INCLUSIVE"
                     ? {
-                        description: li.description,
-                        amountInclGst: li.amountInclGst ?? li.amountExclGst ?? 0,
-                      }
+                      description: li.description,
+                      amountInclGst: li.amountInclGst ?? li.amountExclGst ?? 0,
+                    }
                     : {
-                        description: li.description,
-                        amountExclGst: li.amountExclGst ?? li.amountInclGst ?? 0,
-                      }
+                      description: li.description,
+                      amountExclGst: li.amountExclGst ?? li.amountInclGst ?? 0,
+                    }
                 ),
               }));
             }}

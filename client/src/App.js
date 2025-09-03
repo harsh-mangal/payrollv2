@@ -27,6 +27,7 @@ export default function App() {
   const [clients, setClients] = useState([]);
   const [selectedClientId, setSelectedClientId] = useState("");
   const [ledger, setLedger] = useState(null);
+  const [ledgers, setLedgers] = useState([]);
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const location = useLocation();
@@ -52,10 +53,10 @@ export default function App() {
   }
 
   async function loadLedger() {
-    if (!selectedClientId) return;
     try {
-      const data = await apiGet(baseUrl, `/clients/${selectedClientId}/ledger`);
-      setLedger({ client: data.client, entries: data.entries });
+      const data = await apiGet(baseUrl, "/clients/_all/ledgers");
+      if (!data.ok) throw new Error(data.error || "Failed to fetch ledgers");
+      setLedgers(data.ledgers); // array of { client, entries }
     } catch (e) {
       showToast({ type: "error", text: e.message });
     }
@@ -94,12 +95,19 @@ export default function App() {
   };
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50">
       {!isLoginPage && (
         <Sidebar isOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />
       )}
 
-      <div className="flex flex-col flex-1">
+      {/* Main content area with proper margins for fixed sidebar */}
+      <div 
+        className={`flex flex-col min-h-screen transition-all duration-300 ${
+          !isLoginPage 
+            ? `md:ml-${isSidebarOpen ? '60' : '20'}` 
+            : ''
+        }`}
+      >
         {!isLoginPage && <Navbar toggleSidebar={toggleSidebar} />}
 
         <main className="flex-1 p-4 sm:p-6 max-w-7xl mx-auto w-full space-y-6">
@@ -181,7 +189,7 @@ export default function App() {
               element={
                 <RequireAuth>
                   <LedgerPage
-                    ledger={ledger}
+                    ledger={ledgers}
                     onExport={openLedgerPdf}
                     onRefresh={loadLedger}
                   />

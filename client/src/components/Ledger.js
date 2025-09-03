@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { inr } from "../lib/fmt";
 
 export default function Ledger({ ledger, onExport, onRefresh }) {
@@ -9,6 +9,11 @@ export default function Ledger({ ledger, onExport, onRefresh }) {
   function toNum(v) {
     return v == null ? 0 : Number(v);
   }
+ 
+  useEffect(()=>{
+    console.log(ledger);
+    
+  },[])
 
   return (
     <>

@@ -1,74 +1,84 @@
-// src/pages/QuotationsPage.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import { apiGet, apiPost } from "../lib/api";
+import Select from "react-select";
 
 function LineItemRow({ idx, item, gstMode, onChange, onRemove }) {
   const priceLabel =
     gstMode === "INCLUSIVE"
       ? "Unit Price (incl. GST)"
       : gstMode === "NOGST"
-      ? "Unit Price (no GST)"
-      : "Unit Price (excl. GST)";
+        ? "Unit Price (no GST)"
+        : "Unit Price (excl. GST)";
+
+  const BillingType = [
+    { value: "ONE_TIME", label: "One Time" },
+    { value: "MONTHLY", label: "Monthly" },
+  ];
 
   return (
-    <tr className="align-top">
-      <td className="td">
+    <tr className="align-top hover:bg-gray-50 transition-colors">
+      <td className="px-4 py-3 border-t">
         <input
-          className="input"
-          placeholder="Description"
+          className="w-full px-3 py-2 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
+          placeholder="Enter description"
           value={item.description}
           onChange={(e) =>
             onChange(idx, { ...item, description: e.target.value })
           }
         />
       </td>
-      <td className="td">
+      <td className="px-4 py-3 border-t">
+        <Select
+          options={BillingType}
+          value={BillingType.find((o) => o.value === item.frequency) || null}
+          onChange={(selected) =>
+            onChange(idx, { ...item, frequency: selected?.value })
+          }
+          isClearable
+          placeholder="Billing Type"
+          menuPortalTarget={document.body}
+          styles={{
+            container: (base) => ({ ...base, minWidth: "120px" }),
+            menuPortal: (base) => ({ ...base, zIndex: 9999 }),
+            control: (base) => ({
+              ...base,
+              borderColor: "#d1d5db",
+              boxShadow: "none",
+              "&:hover": { borderColor: "#6366f1" },
+            }),
+            option: (base, { isFocused }) => ({
+              ...base,
+              backgroundColor: isFocused ? "#f3f4f6" : "white",
+              color: "#1f2937",
+              "&:hover": { backgroundColor: "#e5e7eb" },
+            }),
+          }}
+        />
+      </td>
+      <td className="px-4 py-3 border-t">
         <input
           type="number"
-          min="1"
-          className="input w-24"
-          placeholder="Qty"
-          value={item.qty}
+          step="0.01"
+          className="w-full px-3 py-2 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
+          placeholder={priceLabel}
+          value={
+            gstMode === "INCLUSIVE" ? item.unitPriceInclGst : item.unitPriceExclGst
+          }
           onChange={(e) =>
-            onChange(idx, { ...item, qty: Number(e.target.value || 1) })
+            onChange(idx, {
+              ...item,
+              [gstMode === "INCLUSIVE" ? "unitPriceInclGst" : "unitPriceExclGst"]:
+                Number(e.target.value || 0),
+            })
           }
         />
       </td>
-      <td className="td">
-        {gstMode === "INCLUSIVE" ? (
-          <input
-            type="number"
-            className="input w-40"
-            placeholder={priceLabel}
-            value={item.unitPriceInclGst}
-            onChange={(e) =>
-              onChange(idx, {
-                ...item,
-                unitPriceInclGst: Number(e.target.value || 0),
-              })
-            }
-          />
-        ) : (
-          <input
-            type="number"
-            className="input w-40"
-            placeholder={priceLabel}
-            value={item.unitPriceExclGst}
-            onChange={(e) =>
-              onChange(idx, {
-                ...item,
-                unitPriceExclGst: Number(e.target.value || 0),
-              })
-            }
-          />
-        )}
-      </td>
-      <td className="td text-right">
+      <td className="px-4 py-3 border-t text-right">
         <button
-          className="text-red-600 text-xs hover:underline"
+          className="text-red-600 text-sm font-medium hover:text-red-800 transition"
           onClick={() => onRemove(idx)}
         >
-          remove
+          Remove
         </button>
       </td>
     </tr>
@@ -78,8 +88,6 @@ function LineItemRow({ idx, item, gstMode, onChange, onRemove }) {
 export default function QuotationsPage({ baseUrl, clients, showToast }) {
   const [loading, setLoading] = useState(false);
   const [list, setList] = useState([]);
-
-  // Create form state
   const [clientId, setClientId] = useState("");
   const [recipient, setRecipient] = useState({
     name: "",
@@ -98,8 +106,10 @@ export default function QuotationsPage({ baseUrl, clients, showToast }) {
   const [notes, setNotes] = useState("");
   const [terms, setTerms] = useState("");
   const [items, setItems] = useState([
-    { description: "", qty: 1, unitPriceExclGst: 0, unitPriceInclGst: 0 },
+    { description: "", frequency: "ONE_TIME", unitPriceExclGst: 0, unitPriceInclGst: 0 },
   ]);
+
+
   const [creating, setCreating] = useState(false);
 
   useEffect(() => {
@@ -121,7 +131,6 @@ export default function QuotationsPage({ baseUrl, clients, showToast }) {
     }
   }
 
-  // Auto-fill recipient from selected client (no custom hook name, no hook inside callback)
   useEffect(() => {
     if (!clientId) return;
     const c = clients.find((x) => x._id === clientId);
@@ -138,12 +147,15 @@ export default function QuotationsPage({ baseUrl, clients, showToast }) {
   function addItem() {
     setItems((prev) => [
       ...prev,
-      { description: "", qty: 1, unitPriceExclGst: 0, unitPriceInclGst: 0 },
+      { description: "", frequency: "", unitPriceExclGst: 0, unitPriceInclGst: 0 },
     ]);
   }
+
+
   function changeItem(idx, next) {
     setItems((prev) => prev.map((it, i) => (i === idx ? next : it)));
   }
+
   function removeItem(idx) {
     setItems((prev) => prev.filter((_, i) => i !== idx));
   }
@@ -151,10 +163,9 @@ export default function QuotationsPage({ baseUrl, clients, showToast }) {
   const computedTotals = useMemo(() => {
     const toNum = (v) => Number(v || 0);
     const sum = items.reduce((acc, it) => {
-      const qty = toNum(it.qty || 1);
       if (gstMode === "INCLUSIVE")
-        return acc + toNum(it.unitPriceInclGst) * qty;
-      return acc + toNum(it.unitPriceExclGst) * qty;
+        return acc + toNum(it.unitPriceInclGst);
+      return acc + toNum(it.unitPriceExclGst);
     }, 0);
     const extra = toNum(extraAmount);
 
@@ -201,7 +212,7 @@ export default function QuotationsPage({ baseUrl, clients, showToast }) {
       });
       if (res.pdfUrl) window.open(res.pdfUrl, "_blank");
       setItems([
-        { description: "", qty: 1, unitPriceExclGst: 0, unitPriceInclGst: 0 },
+        { description: "", frequency: "ONE_TIME", unitPriceExclGst: 0, unitPriceInclGst: 0 },
       ]);
       setNotes("");
       setTerms("");
@@ -218,15 +229,15 @@ export default function QuotationsPage({ baseUrl, clients, showToast }) {
   }
 
   return (
-    <>
-      <h2 className="text-lg font-semibold mb-3">Create Quotation</h2>
+    <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
+      <h2 className="text-2xl font-bold text-gray-800 mb-6">Create Quotation</h2>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left: Recipient & Meta */}
-        <section className="border rounded-xl p-4">
-          <div className="text-sm text-slate-600 mb-2">Recipient</div>
+        <section className="bg-white shadow-sm rounded-lg p-6">
+          <h3 className="text-sm font-semibold text-gray-600 mb-4">Recipient Details</h3>
           <select
-            className="input mb-2"
+            className="w-full px-3 py-2 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-4 transition"
             value={clientId}
             onChange={(e) => setClientId(e.target.value)}
           >
@@ -238,61 +249,65 @@ export default function QuotationsPage({ baseUrl, clients, showToast }) {
             ))}
           </select>
           <input
-            className="input mb-2"
-            placeholder="Name"
+            className="w-full px-3 py-2 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-4 transition"
+            placeholder="Full Name"
             value={recipient.name}
             onChange={(e) =>
               setRecipient({ ...recipient, name: e.target.value })
             }
           />
           <input
-            className="input mb-2"
-            placeholder="Email"
+            className="w-full px-3 py-2 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-4 transition"
+            placeholder="Email Address"
             value={recipient.email}
             onChange={(e) =>
               setRecipient({ ...recipient, email: e.target.value })
             }
           />
           <input
-            className="input mb-2"
-            placeholder="Phone"
+            className="w-full px-3 py-2 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-4 transition"
+            placeholder="Phone Number"
             value={recipient.phone}
             onChange={(e) =>
               setRecipient({ ...recipient, phone: e.target.value })
             }
           />
           <input
-            className="input mb-2"
-            placeholder="Company"
+            className="w-full px-3 py-2 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-4 transition"
+            placeholder="Company Name"
             value={recipient.company}
             onChange={(e) =>
               setRecipient({ ...recipient, company: e.target.value })
             }
           />
           <textarea
-            className="input"
+            className="w-full px-3 py-2 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
             placeholder="Address"
+            rows={4}
             value={recipient.address}
             onChange={(e) =>
               setRecipient({ ...recipient, address: e.target.value })
             }
           />
-
-          <div className="grid grid-cols-2 gap-2 mt-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
             <div>
-              <div className="text-sm text-slate-600 mb-1">Issue Date</div>
+              <label className="text-sm font-semibold text-gray-600 mb-1 block">
+                Issue Date
+              </label>
               <input
                 type="date"
-                className="input"
+                className="w-full px-3 py-2 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
                 value={issueDate}
                 onChange={(e) => setIssueDate(e.target.value)}
               />
             </div>
             <div>
-              <div className="text-sm text-slate-600 mb-1">Valid Until</div>
+              <label className="text-sm font-semibold text-gray-600 mb-1 block">
+                Valid Until
+              </label>
               <input
                 type="date"
-                className="input"
+                className="w-full px-3 py-2 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
                 value={validUntil}
                 onChange={(e) => setValidUntil(e.target.value)}
               />
@@ -301,10 +316,10 @@ export default function QuotationsPage({ baseUrl, clients, showToast }) {
         </section>
 
         {/* Middle: Items */}
-        <section className="border rounded-xl p-4 lg:col-span-2">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+        <section className="bg-white shadow-sm rounded-lg p-6 lg:col-span-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-6">
             <select
-              className="input"
+              className="w-full px-3 py-2 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
               value={gstMode}
               onChange={(e) => setGstMode(e.target.value)}
             >
@@ -315,31 +330,43 @@ export default function QuotationsPage({ baseUrl, clients, showToast }) {
             <input
               type="number"
               step="0.01"
-              className="input"
+              className="w-full px-3 py-2 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
+              placeholder="GST Rate"
               value={gstRate}
               onChange={(e) => setGstRate(Number(e.target.value || 0))}
             />
             <input
               type="number"
               step="0.01"
-              className="input"
+              className="w-full px-3 py-2 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
               placeholder="Extra Amount"
               value={extraAmount}
               onChange={(e) => setExtraAmount(Number(e.target.value || 0))}
             />
-            <button className="btn-secondary" onClick={addItem}>
+            <button
+              className="px-4 py-2 rounded-md bg-gray-100 text-gray-700 text-sm font-medium hover:bg-gray-200 transition"
+              onClick={addItem}
+            >
               + Add Item
             </button>
           </div>
 
-          <div className="max-h-72 overflow-auto rounded border">
+          <div className="max-h-80 overflow-auto rounded-md border border-gray-200">
             <table className="w-full text-sm">
-              <thead className="bg-slate-50 sticky top-0">
+              <thead className="bg-gray-50 sticky top-0 z-10">
                 <tr>
-                  <th className="px-3 py-2 text-left">Description</th>
-                  <th className="px-3 py-2 text-left">Qty</th>
-                  <th className="px-3 py-2 text-left">Unit Price</th>
-                  <th className="px-3 py-2 text-right w-20">Action</th>
+                  <th className="px-4 py-3 text-left font-semibold text-gray-600">
+                    Description
+                  </th>
+                  <th className="px-4 py-3 text-left font-semibold text-gray-600">
+                    Frequency
+                  </th>
+                  <th className="px-4 py-3 text-left font-semibold text-gray-600">
+                    Price
+                  </th>
+                  <th className="px-4 py-3 text-right font-semibold text-gray-600 w-20">
+                    Action
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -357,9 +384,9 @@ export default function QuotationsPage({ baseUrl, clients, showToast }) {
                   <tr>
                     <td
                       colSpan={4}
-                      className="px-3 py-4 text-center text-slate-500"
+                      className="px-4 py-6 text-center text-gray-500"
                     >
-                      No items
+                      No items added
                     </td>
                   </tr>
                 )}
@@ -367,78 +394,113 @@ export default function QuotationsPage({ baseUrl, clients, showToast }) {
             </table>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
             <textarea
-              className="input"
-              placeholder="Notes"
+              className="w-full px-3 py-2 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
+              placeholder="Additional Notes"
+              rows={4}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
             />
             <textarea
-              className="input"
-              placeholder="Terms"
+              className="w-full px-3 py-2 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
+              placeholder="Terms and Conditions"
+              rows={4}
               value={terms}
               onChange={(e) => setTerms(e.target.value)}
             />
           </div>
 
-          <div className="mt-3 flex items-center justify-between">
-            <div className="text-sm text-slate-600">
-              Subtotal (excl):{" "}
-              <b>{computedTotals.subtotalExclGst.toFixed(2)}</b>
-              <br />
-              GST: <b>{computedTotals.gstAmount.toFixed(2)}</b>
-              <br />
-              Total (incl): <b>{computedTotals.totalInclGst.toFixed(2)}</b>
+          <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="text-sm text-gray-600">
+              <p>
+                Subtotal (excl. GST):{" "}
+                <span className="font-semibold">
+                  ${computedTotals.subtotalExclGst.toFixed(2)}
+                </span>
+              </p>
+              <p>
+                GST Amount:{" "}
+                <span className="font-semibold">
+                  ${computedTotals.gstAmount.toFixed(2)}
+                </span>
+              </p>
+              <p>
+                Total (incl. GST):{" "}
+                <span className="font-semibold">
+                  ${computedTotals.totalInclGst.toFixed(2)}
+                </span>
+              </p>
             </div>
             <button
-              className="btn-primary"
+              className={`px-4 py-2 rounded-md text-white text-sm font-medium transition ${creating
+                ? "bg-indigo-400 cursor-not-allowed"
+                : "bg-indigo-600 hover:bg-indigo-700"
+                }`}
               onClick={createQuotation}
               disabled={creating}
             >
-              {creating ? "Creating…" : "Create Quotation"}
+              {creating ? "Creating..." : "Create Quotation"}
             </button>
           </div>
         </section>
       </div>
 
-      <h2 className="text-lg font-semibold mt-8 mb-3">
-        Quotations{" "}
-        {loading && <span className="text-xs text-slate-500">Loading…</span>}
+      <h2 className="text-2xl font-bold text-gray-800 mt-8 mb-6">
+        Quotations
+        {loading && (
+          <span className="ml-2 text-xs text-gray-500">Loading...</span>
+        )}
       </h2>
-      <div className="max-h-80 overflow-auto border rounded-xl">
+      <div className="max-h-80 overflow-auto rounded-md border border-gray-200">
         <table className="w-full text-sm">
-          <thead className="bg-slate-50 sticky top-0">
+          <thead className="bg-gray-50 sticky top-0 z-10">
             <tr>
-              <th className="th">Quote #</th>
-              <th className="th">Recipient</th>
-              <th className="th">Issued</th>
-              <th className="th">Valid Until</th>
-              <th className="th">Total</th>
-              <th className="th">Status</th>
-              <th className="th">PDF</th>
+              <th className="px-4 py-3 text-left font-semibold text-gray-600">
+                Quote #
+              </th>
+              <th className="px-4 py-3 text-left font-semibold text-gray-600">
+                Recipient
+              </th>
+              <th className="px-4 py-3 text-left font-semibold text-gray-600">
+                Issued
+              </th>
+              <th className="px-4 py-3 text-left font-semibold text-gray-600">
+                Valid Until
+              </th>
+              <th className="px-4 py-3 text-left font-semibold text-gray-600">
+                Total
+              </th>
+              <th className="px-4 py-3 text-left font-semibold text-gray-600">
+                Status
+              </th>
+              <th className="px-4 py-3 text-left font-semibold text-gray-600">
+                PDF
+              </th>
             </tr>
           </thead>
           <tbody>
             {list.map((q) => (
-              <tr key={q._id} className="hover:bg-slate-50">
-                <td className="td font-medium">{q.quoteNo}</td>
-                <td className="td">{q.recipient?.name || "-"}</td>
-                <td className="td">
+              <tr key={q._id} className="hover:bg-gray-50 transition-colors">
+                <td className="px-4 py-3 border-t font-medium">{q.quoteNo}</td>
+                <td className="px-4 py-3 border-t">{q.recipient?.name || "-"}</td>
+                <td className="px-4 py-3 border-t">
                   {q.issueDate
                     ? new Date(q.issueDate).toLocaleDateString()
                     : "-"}
                 </td>
-                <td className="td">
+                <td className="px-4 py-3 border-t">
                   {q.validUntil
                     ? new Date(q.validUntil).toLocaleDateString()
                     : "-"}
                 </td>
-                <td className="td">{q.totalInclGst?.toFixed?.(2) ?? "-"}</td>
-                <td className="td">{q.status}</td>
-                <td className="td">
+                <td className="px-4 py-3 border-t">
+                  {q.totalInclGst?.toFixed?.(2) ?? "-"}
+                </td>
+                <td className="px-4 py-3 border-t">{q.status}</td>
+                <td className="px-4 py-3 border-t">
                   <a
-                    className="text-indigo-600 underline"
+                    className="text-indigo-600 hover:text-indigo-800 underline transition"
                     href={`${baseUrl}/quotations/${q._id}/pdf`}
                     onClick={async (e) => {
                       e.preventDefault();
@@ -453,7 +515,7 @@ export default function QuotationsPage({ baseUrl, clients, showToast }) {
                       }
                     }}
                   >
-                    open
+                    Open
                   </a>
                 </td>
               </tr>
@@ -462,7 +524,7 @@ export default function QuotationsPage({ baseUrl, clients, showToast }) {
               <tr>
                 <td
                   colSpan={7}
-                  className="px-3 py-6 text-center text-slate-500"
+                  className="px-4 py-6 text-center text-gray-500"
                 >
                   No quotations yet
                 </td>
@@ -471,14 +533,6 @@ export default function QuotationsPage({ baseUrl, clients, showToast }) {
           </tbody>
         </table>
       </div>
-
-      <style>{`
-        .input { @apply px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 w-full; }
-        .btn-primary { @apply px-3 py-2 rounded-lg bg-indigo-600 text-white text-sm hover:bg-indigo-700; }
-        .btn-secondary { @apply px-3 py-2 rounded-lg bg-slate-100 text-slate-700 text-sm hover:bg-slate-200; }
-        .th { @apply text-left px-3 py-2 font-medium text-slate-600; }
-        .td { @apply px-3 py-2 border-t; }
-      `}</style>
-    </>
+    </div>
   );
 }

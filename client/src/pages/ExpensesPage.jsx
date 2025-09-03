@@ -1,6 +1,7 @@
 // src/pages/ExpensesPage.jsx
 import React, { useEffect, useState } from "react";
 import { apiGet, apiPost } from "../lib/api";
+import Select from "react-select"; // <-- react-select
 
 // ------- helpers -------
 const parseAmount = (v) => {
@@ -101,6 +102,7 @@ export default function ExpensesPage({ baseUrl, showToast = () => {} }) {
 
   return (
     <div className="space-y-4">
+      {/* Add Expense Form */}
       <div className="border rounded-xl p-4 bg-white">
         <div className="text-sm font-medium mb-2">Add Expense</div>
         <div className="grid grid-cols-1 md:grid-cols-6 gap-2">
@@ -115,7 +117,7 @@ export default function ExpensesPage({ baseUrl, showToast = () => {} }) {
             onChange={(v) => setForm({ ...form, amount: v })}
             placeholder="e.g. 1,234.50"
           />
-          <Select
+          <SelectField
             label="Mode"
             value={form.mode}
             onChange={(v) => setForm({ ...form, mode: v })}
@@ -148,6 +150,7 @@ export default function ExpensesPage({ baseUrl, showToast = () => {} }) {
         </div>
       </div>
 
+      {/* Expense List */}
       <div className="border rounded-xl p-4 bg-white">
         <div className="flex items-end justify-between gap-3">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
@@ -232,9 +235,6 @@ function AmountInput({ label, value, onChange, placeholder }) {
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
       />
-      {/* Optional live parse preview for debugging:
-      <div className="text-[11px] text-slate-500">= {parseAmount(value)}</div>
-      */}
     </div>
   );
 }
@@ -253,21 +253,20 @@ function DateInput({ label, value, onChange }) {
   );
 }
 
-function Select({ label, value, onChange, options = [] }) {
+// New react-select field
+function SelectField({ label, value, onChange, options = [] }) {
+  const selectOptions = options.map((o) => ({ value: o, label: o }));
   return (
     <div className="flex flex-col gap-1">
       <label className="text-xs font-medium text-slate-600">{label}</label>
-      <select
-        className="px-3 py-2 rounded-lg border border-gray-300 text-sm"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-      >
-        {options.map((o) => (
-          <option key={o} value={o}>
-            {o}
-          </option>
-        ))}
-      </select>
+      <Select
+        className="text-sm"
+        options={selectOptions}
+        value={selectOptions.find((opt) => opt.value === value)}
+        onChange={(opt) => onChange(opt ? opt.value : "")}
+        placeholder={`Select ${label.toLowerCase()}…`}
+        isClearable
+      />
     </div>
   );
 }

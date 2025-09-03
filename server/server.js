@@ -14,6 +14,7 @@ import staffRoutes from "./routes/staff.js"; // <-- NEW
 import expenseRoutes from "./routes/expenses.js";
 import reportRoutes from "./routes/reports.js";
 import authRoutes from "./routes/auth.js";
+import quotationRoute from './routes/quotations.js'
 import requireAuth from "./middleware/requireAuth.js";
 const app = express();
 
@@ -44,6 +45,7 @@ app.use("/api/share", requireAuth, shareRoutes);
 app.use("/api", requireAuth, staffRoutes);
 app.use("/api/expenses", requireAuth, expenseRoutes);
 app.use("/api/reports", requireAuth, reportRoutes);
+app.use('/api/quotations',requireAuth,quotationRoute)
 // Basic 404 for unknown API paths
 app.use("/api", (_req, res) =>
   res.status(404).json({ ok: false, error: "NOT_FOUND" })

@@ -1,27 +1,29 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { apiGet, apiPost } from "../lib/api";
+import Select from "react-select";
+
 
 // ---------- utils ----------
 const toNum = (v) => (v === "" || v == null ? 0 : Number(v));
 const round2 = (n) => Math.round((Number(n) + Number.EPSILON) * 100) / 100;
 
 const months = [
-  { v: 1,  label: "January" },
-  { v: 2,  label: "February" },
-  { v: 3,  label: "March" },
-  { v: 4,  label: "April" },
-  { v: 5,  label: "May" },
-  { v: 6,  label: "June" },
-  { v: 7,  label: "July" },
-  { v: 8,  label: "August" },
-  { v: 9,  label: "September" },
+  { v: 1, label: "January" },
+  { v: 2, label: "February" },
+  { v: 3, label: "March" },
+  { v: 4, label: "April" },
+  { v: 5, label: "May" },
+  { v: 6, label: "June" },
+  { v: 7, label: "July" },
+  { v: 8, label: "August" },
+  { v: 9, label: "September" },
   { v: 10, label: "October" },
   { v: 11, label: "November" },
   { v: 12, label: "December" },
 ];
 
 // ---------- main component ----------
-export default function StaffPayroll({ baseUrl, showToast = () => {} }) {
+export default function StaffPayroll({ baseUrl, showToast = () => { } }) {
   const [loading, setLoading] = useState(false);
   const [staff, setStaff] = useState([]);
   const [selectedStaffId, setSelectedStaffId] = useState("");
@@ -342,18 +344,19 @@ export default function StaffPayroll({ baseUrl, showToast = () => {} }) {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <div className="md:col-span-1 border rounded-xl p-3 bg-white">
           <div className="text-sm font-medium mb-2">Staff</div>
-          <select
-            className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            value={selectedStaffId}
-            onChange={(e) => setSelectedStaffId(e.target.value)}
-          >
-            <option value="">Select staff…</option>
-            {staff.map((s) => (
-              <option key={s._id} value={s._id}>
-                {s.name} {s.designation ? `— ${s.designation}` : ""}
-              </option>
-            ))}
-          </select>
+          <Select
+            className="text-sm"
+            options={staff.map((s) => ({
+              value: s._id,
+              label: `${s.name}${s.designation ? ` — ${s.designation}` : ""}`,
+            }))}
+            value={staff
+              .filter((s) => s._id === selectedStaffId)
+              .map((s) => ({ value: s._id, label: `${s.name}${s.designation ? ` — ${s.designation}` : ""}` }))}
+            onChange={(opt) => setSelectedStaffId(opt ? opt.value : "")}
+            placeholder="Select staff…"
+            isClearable
+          />
 
           {selectedStaff && (
             <div className="mt-3 text-sm text-slate-600 space-y-1">
@@ -392,17 +395,16 @@ export default function StaffPayroll({ baseUrl, showToast = () => {} }) {
           <div className="grid grid-cols-2 gap-2">
             <div className="flex flex-col gap-1">
               <label className="text-xs text-slate-600">Month</label>
-              <select
-                className="px-3 py-2 rounded-lg border border-gray-300 text-sm"
-                value={payrollForm.month}
-                onChange={(e) =>
-                  setPayrollForm((f) => ({ ...f, month: Number(e.target.value) }))
+              <Select
+                className="text-sm"
+                options={months.map((m) => ({ value: m.v, label: m.label }))}
+                value={months.find((m) => m.v === payrollForm.month)}
+                onChange={(opt) =>
+                  setPayrollForm((f) => ({ ...f, month: opt ? opt.value : "" }))
                 }
-              >
-                {months.map((m) => (
-                  <option key={m.v} value={m.v}>{m.label}</option>
-                ))}
-              </select>
+                placeholder="Select month…"
+              />
+
             </div>
             <NumberInput
               label="Year"
@@ -427,16 +429,26 @@ export default function StaffPayroll({ baseUrl, showToast = () => {} }) {
               onChange={(v) => setPayrollForm((f) => ({ ...f, paidOn: v }))} />
             <div className="flex flex-col gap-1">
               <label className="text-xs text-slate-600">Pay Mode</label>
-              <select
-                className="px-3 py-2 rounded-lg border border-gray-300 text-sm"
-                value={payrollForm.payMode}
-                onChange={(e) => setPayrollForm((f) => ({ ...f, payMode: e.target.value }))}
-              >
-                <option value="OTHER">Other</option>
-                <option value="CASH">Cash</option>
-                <option value="BANK">Bank</option>
-                <option value="UPI">UPI</option>
-              </select>
+              <Select
+                className="text-sm"
+                options={[
+                  { value: "OTHER", label: "Other" },
+                  { value: "CASH", label: "Cash" },
+                  { value: "BANK", label: "Bank" },
+                  { value: "UPI", label: "UPI" },
+                ]}
+                value={[
+                  { value: "OTHER", label: "Other" },
+                  { value: "CASH", label: "Cash" },
+                  { value: "BANK", label: "Bank" },
+                  { value: "UPI", label: "UPI" },
+                ].find((opt) => opt.value === payrollForm.payMode)}
+                onChange={(opt) =>
+                  setPayrollForm((f) => ({ ...f, payMode: opt ? opt.value : "OTHER" }))
+                }
+                placeholder="Select pay mode…"
+              />
+
             </div>
             <TextInput label="Slip No. (optional)" value={payrollForm.slipNo}
               onChange={(v) => setPayrollForm((f) => ({ ...f, slipNo: v }))} />

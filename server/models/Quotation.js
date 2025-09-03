@@ -8,6 +8,7 @@ const QuotationItemSchema = new mongoose.Schema(
     // Enter one of these depending on gstMode:
     unitPriceExclGst: { type: Number }, // for EXCLUSIVE / NOGST
     unitPriceInclGst: { type: Number }, // for INCLUSIVE
+    BillingType: { type: String, enum: ["ONE_TIME", "MONTHLY"], default: "ONE_TIME" },
     originalAmount: Number,             // optional reference value
   },
   { _id: false }
@@ -33,6 +34,7 @@ const QuotationSchema = new mongoose.Schema(
     validUntil: { type: Date }, // optional validity/expiry
 
     recipient: RecipientSchema, // "to whom" details
+   
 
     lineItems: { type: [QuotationItemSchema], default: [] },
     extraAmount: { type: Number, default: 0 },

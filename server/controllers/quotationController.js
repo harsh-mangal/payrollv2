@@ -16,17 +16,17 @@ const ensureUploadsDir = () => {
   return dir;
 };
 
-// ---------- CREATE QUOTATION ----------
+
 export const createQuotation = async (req, res) => {
   try {
     const {
-      clientId,                 // optional but recommended
+      clientId,                 // optional
       recipient = {},           // { name, email, phone, company, address }
       issueDate,
       validUntil,
       gstMode = "EXCLUSIVE",    // "EXCLUSIVE" | "INCLUSIVE" | "NOGST"
       gstRate: gstRateOverride,
-      lineItems = [],           // [{ description, qty, unitPriceExclGst?, unitPriceInclGst?, originalAmount? }]
+      lineItems = [],           // [{ description, qty, unitPriceExclGst?, unitPriceInclGst?, frequency? }]
       extraAmount = 0,
       terms,
       notes,
@@ -42,8 +42,9 @@ export const createQuotation = async (req, res) => {
     const defaultGst = Number(process.env.GST_RATE || 0.18);
     const gstRate = gstMode === "NOGST" ? 0 : Number(gstRateOverride ?? defaultGst);
 
-    // compute totals from unit prices
+    // convert value to number safely
     const toNum = (v) => Number(v || 0);
+
     let sumExclusive = 0;
     let sumInclusive = 0;
 
@@ -53,7 +54,7 @@ export const createQuotation = async (req, res) => {
         const per = toNum(it.unitPriceInclGst);
         sumInclusive += round2(per * qty);
       } else {
-        // EXCLUSIVE + NOGST
+        // EXCLUSIVE or NOGST
         const per = toNum(it.unitPriceExclGst);
         sumExclusive += round2(per * qty);
       }
@@ -82,13 +83,19 @@ export const createQuotation = async (req, res) => {
 
     const quoteNo = await nextQuoteNo();
 
+    // Map frontend frequency to BillingType in schema
+    const lineItemsWithBilling = lineItems.map((it) => ({
+      ...it,
+      BillingType: it.frequency || "ONE_TIME",
+    }));
+
     const quotation = await Quotation.create({
       clientId: client?._id,
       quoteNo,
       issueDate: issueDate ? new Date(issueDate) : new Date(),
       validUntil: validUntil ? new Date(validUntil) : undefined,
       recipient,
-      lineItems,
+      lineItems: lineItemsWithBilling, // use frequency from frontend
       extraAmount: extra,
       gstMode,
       gstRate,
@@ -115,6 +122,7 @@ export const createQuotation = async (req, res) => {
     res.status(400).json({ ok: false, error: e.message });
   }
 };
+
 
 // ---------- LIST / GET ----------
 export const listQuotations = async (req, res) => {
