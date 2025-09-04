@@ -194,14 +194,24 @@ export const addClientCredential = async (req, res) => {
 export const listClientCredentials = async (req, res) => {
   try {
     const { clientId } = req.params;
-    const client = await Client.findById(clientId, CLIENT_SAFE_PROJECTION);
-    if (!client) return res.status(404).json({ ok: false, error: 'CLIENT_NOT_FOUND' });
+
+    // ✅ force password to be selected
+    const client = await Client.findById(clientId).select("credentials");
+    if (!client) {
+      return res.status(404).json({ ok: false, error: "CLIENT_NOT_FOUND" });
+    }
 
     const safe = client.toObject();
-    safe.credentials = maskCredentialsList(safe.credentials);
-    res.json({ ok: true, credentials: safe.credentials });
+
+    safe.credentials = (safe.credentials || []).map((cred) => ({
+      ...cred,
+      password: cred.password, // return stored password directly
+    }));
+
+    return res.json({ ok: true, credentials: safe.credentials });
   } catch (e) {
-    res.status(400).json({ ok: false, error: e.message });
+    console.error("listClientCredentials error:", e);
+    return res.status(400).json({ ok: false, error: e.message });
   }
 };
 

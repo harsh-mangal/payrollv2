@@ -38,6 +38,8 @@ export const createInvoice = async (req, res) => {
       gstRate: gstRateOverride,
     } = req.body;
 
+    console.log(req.body);
+
     // ---- Validate client ----
     const client = await Client.findById(clientId);
     if (!client)

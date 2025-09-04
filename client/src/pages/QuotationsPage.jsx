@@ -73,6 +73,16 @@ function LineItemRow({ idx, item, gstMode, onChange, onRemove }) {
           }
         />
       </td>
+        <td className="px-4 py-3 border-t">
+       <input
+          className="w-full px-3 py-2 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
+          placeholder="Enter Discount"
+          value={item.discount}
+          onChange={(e) =>
+            onChange(idx, { ...item, discount: e.target.value })
+          }
+        />
+        </td>
       <td className="px-4 py-3 border-t text-right">
         <button
           className="text-red-600 text-sm font-medium hover:text-red-800 transition"
@@ -106,7 +116,7 @@ export default function QuotationsPage({ baseUrl, clients, showToast }) {
   const [notes, setNotes] = useState("");
   const [terms, setTerms] = useState("");
   const [items, setItems] = useState([
-    { description: "", frequency: "ONE_TIME", unitPriceExclGst: 0, unitPriceInclGst: 0 },
+    { description: "", frequency: "ONE_TIME",discount:0, unitPriceExclGst: 0, unitPriceInclGst: 0 },
   ]);
 
 
@@ -147,7 +157,7 @@ export default function QuotationsPage({ baseUrl, clients, showToast }) {
   function addItem() {
     setItems((prev) => [
       ...prev,
-      { description: "", frequency: "", unitPriceExclGst: 0, unitPriceInclGst: 0 },
+      { description: "", frequency: "",discount:0, unitPriceExclGst: 0, unitPriceInclGst: 0 },
     ]);
   }
 
@@ -212,7 +222,7 @@ export default function QuotationsPage({ baseUrl, clients, showToast }) {
       });
       if (res.pdfUrl) window.open(res.pdfUrl, "_blank");
       setItems([
-        { description: "", frequency: "ONE_TIME", unitPriceExclGst: 0, unitPriceInclGst: 0 },
+        { description: "", frequency: "ONE_TIME",discount:0, unitPriceExclGst: 0, unitPriceInclGst: 0 },
       ]);
       setNotes("");
       setTerms("");
@@ -364,6 +374,9 @@ export default function QuotationsPage({ baseUrl, clients, showToast }) {
                   <th className="px-4 py-3 text-left font-semibold text-gray-600">
                     Price
                   </th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-600">
+                    Discount
+                  </th>
                   <th className="px-4 py-3 text-right font-semibold text-gray-600 w-20">
                     Action
                   </th>
@@ -412,26 +425,7 @@ export default function QuotationsPage({ baseUrl, clients, showToast }) {
           </div>
 
           <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="text-sm text-gray-600">
-              <p>
-                Subtotal (excl. GST):{" "}
-                <span className="font-semibold">
-                  ${computedTotals.subtotalExclGst.toFixed(2)}
-                </span>
-              </p>
-              <p>
-                GST Amount:{" "}
-                <span className="font-semibold">
-                  ${computedTotals.gstAmount.toFixed(2)}
-                </span>
-              </p>
-              <p>
-                Total (incl. GST):{" "}
-                <span className="font-semibold">
-                  ${computedTotals.totalInclGst.toFixed(2)}
-                </span>
-              </p>
-            </div>
+           
             <button
               className={`px-4 py-2 rounded-md text-white text-sm font-medium transition ${creating
                 ? "bg-indigo-400 cursor-not-allowed"

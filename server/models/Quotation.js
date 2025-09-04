@@ -9,6 +9,7 @@ const QuotationItemSchema = new mongoose.Schema(
     unitPriceExclGst: { type: Number }, // for EXCLUSIVE / NOGST
     unitPriceInclGst: { type: Number }, // for INCLUSIVE
     BillingType: { type: String, enum: ["ONE_TIME", "MONTHLY"], default: "ONE_TIME" },
+    discount: { type: Number, default: 0 },
     originalAmount: Number,             // optional reference value
   },
   { _id: false }

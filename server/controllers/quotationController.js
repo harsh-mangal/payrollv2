@@ -37,6 +37,7 @@ export const createQuotation = async (req, res) => {
       return res.status(400).json({ ok: false, error: "LINE_ITEMS_REQUIRED" });
     }
 
+
     const client = clientId ? await Client.findById(clientId) : null;
 
     const defaultGst = Number(process.env.GST_RATE || 0.18);
@@ -50,13 +51,16 @@ export const createQuotation = async (req, res) => {
 
     for (const it of lineItems) {
       const qty = toNum(it.qty || 1);
+      const discount = toNum(it.discount || 0); // 👈 read discount
+
       if (gstMode === "INCLUSIVE") {
         const per = toNum(it.unitPriceInclGst);
-        sumInclusive += round2(per * qty);
+        const net = per - discount;              // 👈 apply discount
+        sumInclusive += round2(net * qty);
       } else {
-        // EXCLUSIVE or NOGST
         const per = toNum(it.unitPriceExclGst);
-        sumExclusive += round2(per * qty);
+        const net = per - discount;              // 👈 apply discount
+        sumExclusive += round2(net * qty);
       }
     }
 
@@ -87,6 +91,7 @@ export const createQuotation = async (req, res) => {
     const lineItemsWithBilling = lineItems.map((it) => ({
       ...it,
       BillingType: it.frequency || "ONE_TIME",
+       discount: toNum(it.discount || 0),
     }));
 
     const quotation = await Quotation.create({
@@ -235,17 +240,17 @@ export const convertQuotationToInvoice = async (req, res, next) => {
       const qty = Number(it.qty || 1);
       return qtn.gstMode === "INCLUSIVE"
         ? {
-            description: it.description,
-            qty,
-            amountInclGst: round2(Number(it.unitPriceInclGst || 0) * qty),
-            originalAmount: it.originalAmount,
-          }
+          description: it.description,
+          qty,
+          amountInclGst: round2(Number(it.unitPriceInclGst || 0) * qty),
+          originalAmount: it.originalAmount,
+        }
         : {
-            description: it.description,
-            qty,
-            amountExclGst: round2(Number(it.unitPriceExclGst || 0) * qty),
-            originalAmount: it.originalAmount,
-          };
+          description: it.description,
+          qty,
+          amountExclGst: round2(Number(it.unitPriceExclGst || 0) * qty),
+          originalAmount: it.originalAmount,
+        };
     });
 
     // call your existing invoice creation logic
@@ -257,8 +262,9 @@ export const convertQuotationToInvoice = async (req, res, next) => {
       remarks: `Converted from quotation ${qtn.quoteNo}`,
       gstMode: qtn.gstMode,
       gstRate: qtn.gstRate,
-      billingType: "ONE_TIME",
+      billingType: qtn.lineItems?.BillingType || "ONE_TIME",
     };
+
 
     // mark accepted
     qtn.status = "ACCEPTED";

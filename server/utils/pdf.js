@@ -432,35 +432,154 @@ export async function generateLedgerPDF({ client, entries }, outPath) {
     stream.on("error", reject);
   });
 }
+
+
 // server/utils/pdf.js (add this next to other exports)
 export async function generateQuotationPDF({ quotation, client }, outPath) {
-  // If your generateInvoicePDF already supports custom headers,
-  // you can delegate to it. Otherwise, implement your own template here.
-  const { generateInvoicePDF } = await import("./pdf.js"); // self import if same file exports both
-  const fakeInvoice = {
-    invoiceNo: quotation.quoteNo,       // show quote number in the PDF
-    issueDate: quotation.issueDate,
-    periodStart: undefined,
-    periodEnd: quotation.validUntil,
-    lineItems: quotation.lineItems.map(it => ({
-      description: it.description,
-      // map to invoice unit fields so the PDF template can render
-      unitPriceExclGst: it.unitPriceExclGst || 0,
-      unitPriceInclGst: it.unitPriceInclGst || 0,
-      qty: it.qty || 1,
-      originalAmount: it.originalAmount,
-      BillingType: it.BillingType
-    })),
-    extraAmount: quotation.extraAmount,
-    gstMode: quotation.gstMode,
-    subtotalExclGst: quotation.subtotalExclGst,
-    gstRate: quotation.gstRate,
-    gstAmount: quotation.gstAmount,
-    totalInclGst: quotation.totalInclGst,
-    remarks: quotation.notes,
-    // custom flag so your template can switch heading to "Quotation"
-    isQuotation: true,
-  };
+  return new Promise((resolve, reject) => {
+    try {
+      const doc = new PDFDocument({ margin: 50, size: "A4" });
+      const stream = fs.createWriteStream(outPath);
+      doc.pipe(stream);
 
-  return generateInvoicePDF({ invoice: fakeInvoice, client, payments: [] }, outPath);
+      /* ---------------- Header ---------------- */
+      doc
+        .fontSize(16)
+        .fillColor("#1a1a1a")
+        .text("QUOTATION", { align: "center" })
+        .moveDown(1.2);
+
+      // Client details
+      doc
+        .fontSize(9)
+        .fillColor("#333")
+        .text(`To: ${client.name}`, { continued: false })
+        .text(client.company || "")
+        .text(client.address || "")
+        .text(client.phone ? `Phone: ${client.phone}` : "")
+        .text(client.email ? `Email: ${client.email}` : "")
+        .moveDown(1.2);
+
+      /* ---------------- Quotation Info ---------------- */
+      doc
+        .fontSize(9)
+        .fillColor("#000")
+        .text(`Quotation No: ${quotation.quoteNo}`)
+        .text(`Issue Date: ${dayjs(quotation.issueDate).format("DD/MM/YYYY")}`)
+        .text(`Valid Until: ${dayjs(quotation.validUntil).format("DD/MM/YYYY")}`)
+        .moveDown(1.2);
+
+      /* ---------------- Line Items Table ---------------- */
+      const tableTop = doc.y;
+      const itemX = 50;
+      const billingX = 220;
+      const unitX = 320;
+      const discountX = 400;
+      const finalX = 480;
+
+      // Header row
+      doc
+        .fontSize(9)
+        .fillColor("#000")
+        .font("Helvetica-Bold")
+        .text("Description", itemX, tableTop)
+        .text("Billing", billingX, tableTop)
+        .text("Item Price", unitX, tableTop)
+        .text("Discount", discountX, tableTop)
+        .text("Final Price", finalX, tableTop);
+
+      doc
+        .moveTo(50, tableTop + 16)
+        .lineTo(550, tableTop + 16)
+        .lineWidth(0.7)
+        .strokeColor("#999")
+        .stroke();
+
+      let y = tableTop + 24;
+
+      doc.font("Helvetica").fillColor("#333");
+      quotation.lineItems.forEach((it) => {
+        const qty = it.qty || 1;
+        const discount = it.discount || 0;
+        const per =
+          quotation.gstMode === "INCLUSIVE"
+            ? it.unitPriceInclGst
+            : it.unitPriceExclGst;
+
+        const itemTotal = (per || 0) * qty;
+        const discountTotal = discount ? discount * qty : 0;
+        const finalTotal = discount ? itemTotal - discountTotal : null;
+
+        doc.fontSize(9);
+        doc.text(it.description, itemX, y, { width: 160 });
+        doc.text(it.BillingType || "-", billingX, y);
+        doc.text(currency(itemTotal), unitX, y);
+        doc.text(discount ? currency(discountTotal) : "---", discountX, y);
+        doc.text(finalTotal !== null ? currency(finalTotal) : "---", finalX, y);
+
+        y += 18;
+
+        // dotted separator between rows
+        doc
+          .moveTo(50, y - 5)
+          .lineTo(550, y - 5)
+          .lineWidth(0.4)
+          .dash(2, { space: 2 })
+          .strokeColor("#ccc")
+          .stroke()
+          .undash();
+      });
+
+      /* ---------------- Totals ---------------- */
+      y += 15;
+      doc.moveTo(320, y).lineTo(550, y).strokeColor("#999").stroke();
+      y += 8;
+
+      doc.font("Helvetica-Bold").fontSize(10);
+      doc.text("Subtotal:", 360, y);
+      doc.text(currency(quotation.subtotalExclGst), finalX, y);
+
+      y += 15;
+      doc.font("Helvetica-Bold").fontSize(10);
+      doc.text("GST:", 360, y);
+      doc.text(currency(quotation.gstAmount), finalX, y);
+
+      y += 15;
+      doc.font("Helvetica-Bold").fontSize(12).fillColor("#000");
+      doc.text("Total:", 360, y);
+      doc.text(currency(quotation.totalInclGst), finalX, y);
+
+      /* ---------------- Notes & Terms ---------------- */
+      y += 30;
+      if (quotation.notes) {
+        doc.font("Helvetica-Bold").fontSize(10).fillColor("#333").text("Notes:", 50, y);
+        y += 12;
+        doc.font("Helvetica").fontSize(9).fillColor("#444").text(quotation.notes, 50, y, { width: 500 });
+      }
+
+      if (quotation.terms) {
+        y += 30;
+        doc.font("Helvetica-Bold").fontSize(10).fillColor("#333").text("Terms & Conditions:", 50, y);
+        y += 12;
+        doc.font("Helvetica").fontSize(9).fillColor("#444").text(quotation.terms, 50, y, { width: 500 });
+      }
+
+      /* ---------------- Footer ---------------- */
+      doc
+        .font("Helvetica-Oblique")
+        .fontSize(8)
+        .fillColor("#666")
+        .text("This is a system generated quotation.", 50, 770, {
+          align: "center",
+          width: 500,
+        });
+
+      doc.end();
+      stream.on("finish", () => resolve(outPath));
+      stream.on("error", reject);
+    } catch (err) {
+      reject(err);
+    }
+  });
 }
+

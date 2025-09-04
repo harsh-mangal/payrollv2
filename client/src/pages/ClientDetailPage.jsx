@@ -24,6 +24,7 @@ export default function ClientDetailPage({ baseUrl, showToast }) {
   const [invGstMode, setInvGstMode] = useState("EXCLUSIVE");
   const [invCreating, setInvCreating] = useState(false);
   const [svcSaving, setSvcSaving] = useState(false);
+  const [showPassword, setShowPassword] = useState({}); // State to toggle password visibility
   const [svcForm, setSvcForm] = useState({
     kind: "HOSTING",
     billingType: "MONTHLY",
@@ -53,8 +54,8 @@ export default function ClientDetailPage({ baseUrl, showToast }) {
   });
 
   const monthNames = [
-    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December",
   ];
   const invMonthNum = Number(invMonth);
   const invYearNum = Number(invYear);
@@ -245,42 +246,59 @@ export default function ClientDetailPage({ baseUrl, showToast }) {
     }
   }
 
+  // Toggle password visibility
+  const togglePasswordVisibility = (id) => {
+    setShowPassword((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
   if (!client) {
     return (
-      <div className="p-6 max-w-7xl mx-auto">
-        <Link className="text-indigo-600 hover:underline text-sm font-medium" to="/clients">
-          ← Back to Clients
+      <div className="p-8 max-w-7xl mx-auto bg-gray-50 min-h-screen">
+        <Link
+          to="/clients"
+          className="inline-flex items-center text-indigo-600 hover:text-indigo-800 text-sm font-semibold transition-colors"
+        >
+          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"></path>
+          </svg>
+          Back to Clients
         </Link>
-        <div className="mt-4 text-slate-600">Loading client...</div>
+        <div className="mt-4 text-gray-600 animate-pulse">Loading client...</div>
       </div>
     );
   }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="p-8 max-w-7xl mx-auto bg-gray-50 min-h-screen">
       {/* Header */}
-      <div className="mb-6">
-        <Link className="text-indigo-600 hover:underline text-sm font-medium" to="/clients">
-          ← Back to Clients
+      <div className="mb-8">
+        <Link
+          to="/clients"
+          className="inline-flex items-center text-indigo-600 hover:text-indigo-800 text-sm font-semibold transition-colors"
+        >
+          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"></path>
+          </svg>
+          Back to Clients
         </Link>
-        <h2 className="text-2xl font-bold text-gray-800 mt-2">{client.name}</h2>
-        <div className="text-sm text-gray-500 flex flex-wrap gap-2">
-          <span>{client.email || "-"}</span>
-          <span>•</span>
-          <span>{client.phone || "-"}</span>
-          <span>•</span>
-          <span>GSTIN: {client.gstin || "-"}</span>
+        <h2 className="text-3xl font-bold text-gray-900 mt-3">{client.name}</h2>
+        <div className="mt-2 flex flex-wrap gap-3 text-sm text-gray-600">
+          <span>{client.email || "No email"}</span>
+          <span className="text-gray-400">•</span>
+          <span>{client.phone || "No phone"}</span>
+          <span className="text-gray-400">•</span>
+          <span>GSTIN: {client.gstin || "N/A"}</span>
         </div>
       </div>
 
       {/* Month-wise Invoice */}
-      <section className="bg-white shadow-sm rounded-lg p-6 mb-6 border border-gray-200">
-        <h3 className="text-lg font-semibold text-gray-800 mb-4">Month-wise Invoice (Services)</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <section className="bg-white rounded-xl shadow-md p-6 mb-8 border border-gray-100">
+        <h3 className="text-xl font-semibold text-gray-900 mb-6">Create Month-wise Invoice</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Month</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Month</label>
             <Select
-              className="w-full"
+              className="w-full text-sm"
               value={{ value: invMonth, label: monthNames[invMonthNum - 1] }}
               onChange={(opt) => setInvMonth(opt.value)}
               options={monthNames.map((m, i) => ({ value: String(i + 1), label: m }))}
@@ -288,9 +306,9 @@ export default function ClientDetailPage({ baseUrl, showToast }) {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Year</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Year</label>
             <input
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+              className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm transition-all"
               type="number"
               min={2000}
               max={2100}
@@ -298,10 +316,10 @@ export default function ClientDetailPage({ baseUrl, showToast }) {
               onChange={(e) => setInvYear(e.target.value)}
             />
           </div>
-          <div className="sm:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-1">GST Mode</label>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">GST Mode</label>
             <Select
-              className="w-full"
+              className="w-full text-sm"
               value={{ value: invGstMode, label: invGstMode.replace("_", " ") }}
               onChange={(opt) => setInvGstMode(opt.value)}
               options={[
@@ -313,29 +331,39 @@ export default function ClientDetailPage({ baseUrl, showToast }) {
             />
           </div>
           <button
-            className={`w-full sm:col-span-2 px-4 py-2 rounded-lg text-white text-sm font-medium transition-colors ${
+            className={`sm:col-span-3 px-6 py-3 rounded-lg text-white text-sm font-semibold transition-all ${
               invCreating || !monthYearValid
-                ? "bg-gray-400 cursor-not-allowed"
+                ? "bg-gray-300 cursor-not-allowed"
                 : "bg-indigo-600 hover:bg-indigo-700"
             }`}
             onClick={createMonthInvoiceFromServices}
             disabled={invCreating || !monthYearValid}
           >
-            {invCreating ? "Creating..." : "Create Invoice"}
+            {invCreating ? (
+              <span className="flex items-center justify-center">
+                <svg className="animate-spin h-5 w-5 mr-2 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8h8a8 8 0 11-16 0z"></path>
+                </svg>
+                Creating...
+              </span>
+            ) : (
+              "Generate Invoice"
+            )}
           </button>
         </div>
       </section>
 
       {/* Body Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Services */}
-        <section className="bg-white shadow-sm rounded-lg p-6 border border-gray-200 lg:col-span-1">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">Create Service</h3>
-          <div className="grid grid-cols-1 gap-4">
+        <section className="bg-white rounded-xl shadow-md p-6 border border-gray-100 lg:col-span-1">
+          <h3 className="text-xl font-semibold text-gray-900 mb-6">Add New Service</h3>
+          <div className="grid grid-cols-1 gap-5">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Kind</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Service Type</label>
               <Select
-                className="w-full"
+                className="w-full text-sm"
                 value={{ value: svcForm.kind, label: svcForm.kind }}
                 onChange={(opt) => setSvcForm({ ...svcForm, kind: opt.value })}
                 options={[
@@ -347,9 +375,9 @@ export default function ClientDetailPage({ baseUrl, showToast }) {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Billing Type</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Billing Type</label>
               <Select
-                className="w-full"
+                className="w-full text-sm"
                 value={{ value: svcForm.billingType, label: svcForm.billingType }}
                 onChange={(opt) => setSvcForm({ ...svcForm, billingType: opt.value })}
                 options={[
@@ -361,98 +389,104 @@ export default function ClientDetailPage({ baseUrl, showToast }) {
             </div>
             {svcForm.billingType === "MONTHLY" ? (
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Monthly Amount (GST excl.)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Monthly Amount (GST excl.)</label>
                 <input
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm transition-all"
                   type="number"
-                  placeholder="Monthly Amount"
+                  placeholder="Enter monthly amount"
                   value={svcForm.amountMonthly}
-                  onChange={(e) =>
-                    setSvcForm({ ...svcForm, amountMonthly: Number(e.target.value) })
-                  }
+                  onChange={(e) => setSvcForm({ ...svcForm, amountMonthly: Number(e.target.value) })}
                 />
               </div>
             ) : (
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">One-time Amount (GST excl.)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">One-time Amount (GST excl.)</label>
                 <input
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm transition-all"
                   type="number"
-                  placeholder="One-time Amount"
+                  placeholder="Enter one-time amount"
                   value={svcForm.amountOneTime}
-                  onChange={(e) =>
-                    setSvcForm({ ...svcForm, amountOneTime: Number(e.target.value) })
-                  }
+                  onChange={(e) => setSvcForm({ ...svcForm, amountOneTime: Number(e.target.value) })}
                 />
               </div>
             )}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Start Date *</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Start Date *</label>
               <input
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm transition-all"
                 type="date"
                 value={svcForm.startDate}
                 onChange={(e) => setSvcForm({ ...svcForm, startDate: e.target.value })}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Expiry Date (optional)</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Expiry Date (optional)</label>
               <input
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm transition-all"
                 type="date"
                 value={svcForm.expiryDate}
                 onChange={(e) => setSvcForm({ ...svcForm, expiryDate: e.target.value })}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Notes</label>
               <textarea
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm min-h-[100px]"
-                placeholder="Notes"
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm min-h-[120px] transition-all"
+                placeholder="Add service notes"
                 value={svcForm.notes}
                 onChange={(e) => setSvcForm({ ...svcForm, notes: e.target.value })}
               />
             </div>
             <button
-              className={`w-full px-4 py-2 rounded-lg text-white text-sm font-medium transition-colors ${
+              className={`w-full px-6 py-3 rounded-lg text-white text-sm font-semibold transition-all ${
                 !canSubmitService || svcSaving
-                  ? "bg-gray-400 cursor-not-allowed"
+                  ? "bg-gray-300 cursor-not-allowed"
                   : "bg-indigo-600 hover:bg-indigo-700"
               }`}
               disabled={!canSubmitService || svcSaving}
               onClick={addService}
             >
-              {svcSaving ? "Saving..." : "Add Service"}
+              {svcSaving ? (
+                <span className="flex items-center justify-center">
+                  <svg className="animate-spin h-5 w-5 mr-2 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8h8a8 8 0 11-16 0z"></path>
+                  </svg>
+                  Saving...
+                </span>
+              ) : (
+                "Add Service"
+              )}
             </button>
           </div>
-          <h4 className="text-md font-semibold text-gray-800 mt-6 mb-3">Existing Services</h4>
-          <div className="max-h-56 overflow-auto rounded-lg border border-gray-200">
+          <h4 className="text-lg font-semibold text-gray-900 mt-8 mb-4">Existing Services</h4>
+          <div className="max-h-64 overflow-auto rounded-lg border border-gray-200">
             <table className="w-full text-sm">
-              <thead className="bg-gray-50 sticky top-0">
+              <thead className="bg-gray-100 sticky top-0">
                 <tr>
-                  <th className="px-4 py-3 text-left font-medium text-gray-700">Kind</th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-700">Billing</th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-700">Amount</th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-700">Start</th>
+                  <th className="px-4 py-3 text-left font-semibold text-gray-700">Kind</th>
+                  <th className="px-4 py-3 text-left font-semibold text-gray-700">Billing</th>
+                  <th className="px-4 py-3 text-left font-semibold text-gray-700">Amount</th>
+                  <th className="px-4 py-3 text-left font-semibold text-gray-700">Start</th>
                 </tr>
               </thead>
               <tbody>
                 {(client.services || []).slice().reverse().map((s, i) => (
-                  <tr key={i} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 border-t">{s.kind}</td>
-                    <td className="px-4 py-3 border-t">{s.billingType}</td>
-                    <td className="px-4 py-3 border-t">
+                  <tr key={i} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-4 py-3 border-t text-gray-600">{s.kind}</td>
+                    <td className="px-4 py-3 border-t text-gray-600">{s.billingType}</td>
+                    <td className="px-4 py-3 border-t text-gray-600">
                       {s.billingType === "MONTHLY" ? s.amountMonthly : s.amountOneTime}
                     </td>
-                    <td className="px-4 py-3 border-t">
-                      {s.startDate ? new Date(s.startDate).toLocaleDateString() : "-"}
+                    <td className="px-4 py-3 border-t text-gray-600">
+                      {s.startDate ? new Date(s.startDate).toLocaleDateString() : "N/A"}
                     </td>
                   </tr>
                 ))}
                 {(client.services || []).length === 0 && (
                   <tr>
                     <td colSpan={4} className="px-4 py-4 text-center text-gray-500">
-                      No services yet
+                      No services added yet
                     </td>
                   </tr>
                 )}
@@ -462,34 +496,34 @@ export default function ClientDetailPage({ baseUrl, showToast }) {
         </section>
 
         {/* Credentials */}
-        <section className="bg-white shadow-sm rounded-lg p-6 border border-gray-200 lg:col-span-2">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-800">Credentials</h3>
-            {credLoading && <span className="text-xs text-gray-500">Loading...</span>}
+        <section className="bg-white rounded-xl shadow-md p-6 border border-gray-100 lg:col-span-2">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-xl font-semibold text-gray-900">Credentials</h3>
+            {credLoading && <span className="text-sm text-gray-500 animate-pulse">Loading...</span>}
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Panel Name *</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Panel Name *</label>
               <input
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
-                placeholder="Panel Name"
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm transition-all"
+                placeholder="Enter panel name"
                 value={credForm.panelName}
                 onChange={(e) => setCredForm({ ...credForm, panelName: e.target.value })}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Project</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Project</label>
               <input
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
-                placeholder="Project"
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm transition-all"
+                placeholder="Enter project name"
                 value={credForm.projectName}
                 onChange={(e) => setCredForm({ ...credForm, projectName: e.target.value })}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Environment</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Environment</label>
               <Select
-                className="w-full"
+                className="w-full text-sm"
                 value={{ value: credForm.environment, label: credForm.environment }}
                 onChange={(opt) => setCredForm({ ...credForm, environment: opt.value })}
                 options={[
@@ -502,47 +536,49 @@ export default function ClientDetailPage({ baseUrl, showToast }) {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">URL</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">URL</label>
               <input
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
-                placeholder="URL"
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm transition-all"
+                placeholder="Enter URL"
                 value={credForm.url}
                 onChange={(e) => setCredForm({ ...credForm, url: e.target.value })}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Username *</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Username *</label>
               <input
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
-                placeholder="Username"
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm transition-all"
+                placeholder="Enter username"
                 value={credForm.username}
                 onChange={(e) => setCredForm({ ...credForm, username: e.target.value })}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Password *</label>
-              <input
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
-                type="password"
-                placeholder="Password"
-                value={credForm.password}
-                onChange={(e) => setCredForm({ ...credForm, password: e.target.value })}
-              />
+              <label className="block text-sm font-medium text-gray-700 mb-2">Password *</label>
+              <div className="relative">
+                <input
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm transition-all"
+                  type="password"
+                  placeholder="Enter password"
+                  value={credForm.password}
+                  onChange={(e) => setCredForm({ ...credForm, password: e.target.value })}
+                />
+              </div>
             </div>
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Tags (comma separated)</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Tags (comma separated)</label>
               <input
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
-                placeholder="Tags (comma separated)"
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm transition-all"
+                placeholder="Enter tags (e.g., admin, access)"
                 value={credForm.tags}
                 onChange={(e) => setCredForm({ ...credForm, tags: e.target.value })}
               />
             </div>
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
-              <input
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
-                placeholder="Notes"
+              <label className="block text-sm font-medium text-gray-700 mb-2">Notes</label>
+              <textarea
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm min-h-[120px] transition-all"
+                placeholder="Add credential notes"
                 value={credForm.notes}
                 onChange={(e) => setCredForm({ ...credForm, notes: e.target.value })}
               />
@@ -553,33 +589,39 @@ export default function ClientDetailPage({ baseUrl, showToast }) {
                   await addCredential();
                   await loadClient();
                 }}
-                className="w-full px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition-colors"
+                className="w-full px-6 py-3 rounded-lg bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 transition-all"
               >
-                + Add Credential
+                <span className="flex items-center justify-center">
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path>
+                  </svg>
+                  Add Credential
+                </span>
               </button>
             </div>
           </div>
-          <div className="mt-4 max-h-56 overflow-auto rounded-lg border border-gray-200">
+          <div className="mt-6 max-h-64 overflow-auto rounded-lg border border-gray-200">
             <table className="w-full text-sm">
-              <thead className="bg-gray-50 sticky top-0">
+              <thead className="bg-gray-100 sticky top-0">
                 <tr>
-                  <th className="px-4 py-3 text-left font-medium text-gray-700">Panel</th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-700">Env</th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-700">User</th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-700">URL</th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-700">Tags</th>
+                  <th className="px-4 py-3 text-left font-semibold text-gray-700">Panel</th>
+                  <th className="px-4 py-3 text-left font-semibold text-gray-700">Env</th>
+                  <th className="px-4 py-3 text-left font-semibold text-gray-700">User</th>
+                  <th className="px-4 py-3 text-left font-semibold text-gray-700">URL</th>
+                  <th className="px-4 py-3 text-left font-semibold text-gray-700">Password</th>
+                  <th className="px-4 py-3 text-left font-semibold text-gray-700">Tags</th>
                 </tr>
               </thead>
               <tbody>
                 {credentials.map((cr) => (
-                  <tr key={cr._id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 border-t font-medium">{cr.panelName}</td>
-                    <td className="px-4 py-3 border-t">{cr.environment}</td>
-                    <td className="px-4 py-3 border-t">{cr.username}</td>
-                    <td className="px-4 py-3 border-t">
+                  <tr key={cr._id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-4 py-3 border-t text-gray-600">{cr.panelName}</td>
+                    <td className="px-4 py-3 border-t text-gray-600">{cr.environment}</td>
+                    <td className="px-4 py-3 border-t text-gray-600">{cr.username}</td>
+                    <td className="px-4 py-3 border-t text-gray-600">
                       {cr.url ? (
                         <a
-                          className="text-indigo-600 hover:underline"
+                          className="text-indigo-600 hover:text-indigo-800 transition-colors"
                           target="_blank"
                           rel="noreferrer"
                           href={cr.url}
@@ -587,16 +629,36 @@ export default function ClientDetailPage({ baseUrl, showToast }) {
                           Open
                         </a>
                       ) : (
-                        "-"
+                        "N/A"
                       )}
                     </td>
-                    <td className="px-4 py-3 border-t">{(cr.tags || []).join(", ") || "-"}</td>
+                    <td className="px-4 py-3 border-t text-gray-600">
+                      <div className="flex items-center">
+                        <span>{showPassword[cr._id] ? cr.password : "••••••••"}</span>
+                        <button
+                          onClick={() => togglePasswordVisibility(cr._id)}
+                          className="ml-2 text-gray-500 hover:text-gray-700"
+                        >
+                          {showPassword[cr._id] ? (
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"></path>
+                            </svg>
+                          ) : (
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                            </svg>
+                          )}
+                        </button>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 border-t text-gray-600">{(cr.tags || []).join(", ") || "N/A"}</td>
                   </tr>
                 ))}
                 {credentials.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="px-4 py-4 text-center text-gray-500">
-                      No credentials
+                    <td colSpan={6} className="px-4 py-4 text-center text-gray-500">
+                      No credentials added yet
                     </td>
                   </tr>
                 )}
@@ -606,61 +668,61 @@ export default function ClientDetailPage({ baseUrl, showToast }) {
         </section>
 
         {/* Meetings */}
-        <section className="bg-white shadow-sm rounded-lg p-6 border border-gray-200 lg:col-span-3">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-800">Meetings</h3>
-            {meetLoading && <span className="text-xs text-gray-500">Loading...</span>}
+        <section className="bg-white rounded-xl shadow-md p-6 border border-gray-100 lg:col-span-3">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-xl font-semibold text-gray-900">Meetings</h3>
+            {meetLoading && <span className="text-sm text-gray-500 animate-pulse">Loading...</span>}
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Meeting Date</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Meeting Date</label>
               <input
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm transition-all"
                 type="datetime-local"
                 value={meetingForm.meetingDate}
                 onChange={(e) => setMeetingForm({ ...meetingForm, meetingDate: e.target.value })}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Title</label>
               <input
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
-                placeholder="Title"
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm transition-all"
+                placeholder="Enter meeting title"
                 value={meetingForm.title}
                 onChange={(e) => setMeetingForm({ ...meetingForm, title: e.target.value })}
               />
             </div>
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Attendees (comma separated)</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Attendees (comma separated)</label>
               <input
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
-                placeholder="Attendees"
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm transition-all"
+                placeholder="Enter attendees (e.g., John Doe, Jane Smith)"
                 value={meetingForm.attendees}
                 onChange={(e) => setMeetingForm({ ...meetingForm, attendees: e.target.value })}
               />
             </div>
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Remarks</label>
-              <input
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
-                placeholder="Remarks"
+              <label className="block text-sm font-medium text-gray-700 mb-2">Remarks</label>
+              <textarea
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm min-h-[120px] transition-all"
+                placeholder="Add meeting remarks"
                 value={meetingForm.remarks}
                 onChange={(e) => setMeetingForm({ ...meetingForm, remarks: e.target.value })}
               />
             </div>
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Summary</label>
-              <input
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
-                placeholder="Summary"
+              <label className="block text-sm font-medium text-gray-700 mb-2">Summary</label>
+              <textarea
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm min-h-[120px] transition-all"
+                placeholder="Add meeting summary"
                 value={meetingForm.summary}
                 onChange={(e) => setMeetingForm({ ...meetingForm, summary: e.target.value })}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Next Follow-Up</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Next Follow-Up</label>
               <input
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm transition-all"
                 type="date"
                 value={meetingForm.nextFollowUp}
                 onChange={(e) => setMeetingForm({ ...meetingForm, nextFollowUp: e.target.value })}
@@ -669,49 +731,54 @@ export default function ClientDetailPage({ baseUrl, showToast }) {
             <div className="md:col-span-2">
               <button
                 onClick={addMeeting}
-                className="w-full px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition-colors"
+                className="w-full px-6 py-3 rounded-lg bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 transition-all"
               >
-                + Save Meeting
+                <span className="flex items-center justify-center">
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path>
+                  </svg>
+                  Save Meeting
+                </span>
               </button>
             </div>
           </div>
-          <div className="mt-4 max-h-72 overflow-auto rounded-lg border border-gray-200">
+          <div className="mt-6 max-h-72 overflow-auto rounded-lg border border-gray-200">
             <table className="w-full text-sm">
-              <thead className="bg-gray-50 sticky top-0">
+              <thead className="bg-gray-100 sticky top-0">
                 <tr>
-                  <th className="px-4 py-3 text-left font-medium text-gray-700">When</th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-700">Title</th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-700">Attendees</th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-700">Remarks</th>
+                  <th className="px-4 py-3 text-left font-semibold text-gray-700">When</th>
+                  <th className="px-4 py-3 text-left font-semibold text-gray-700">Title</th>
+                  <th className="px-4 py-3 text-left font-semibold text-gray-700">Attendees</th>
+                  <th className="px-4 py-3 text-left font-semibold text-gray-700">Remarks</th>
                 </tr>
               </thead>
               <tbody>
                 {meetings.map((m) => (
-                  <tr key={m._id} className="hover:bg-gray-50 align-top">
-                    <td className="px-4 py-3 border-t">
-                      {m.meetingDate ? new Date(m.meetingDate).toLocaleString() : "-"}
+                  <tr key={m._id} className="hover:bg-gray-50 transition-colors align-top">
+                    <td className="px-4 py-3 border-t text-gray-600">
+                      {m.meetingDate ? new Date(m.meetingDate).toLocaleString() : "N/A"}
                       {m.nextFollowUp && (
                         <div className="text-xs text-amber-600">
                           Next: {new Date(m.nextFollowUp).toLocaleDateString()}
                         </div>
                       )}
                     </td>
-                    <td className="px-4 py-3 border-t">
-                      <div className="font-medium">{m.title || "-"}</div>
+                    <td className="px-4 py-3 border-t text-gray-600">
+                      <div className="font-medium">{m.title || "N/A"}</div>
                       {m.summary && (
                         <div className="text-xs text-gray-500">{m.summary}</div>
                       )}
                     </td>
-                    <td className="px-4 py-3 border-t">
-                      {(m.attendees || []).join(", ") || "-"}
+                    <td className="px-4 py-3 border-t text-gray-600">
+                      {(m.attendees || []).join(", ") || "N/A"}
                     </td>
-                    <td className="px-4 py-3 border-t">{m.remarks || "-"}</td>
+                    <td className="px-4 py-3 border-t text-gray-600">{m.remarks || "N/A"}</td>
                   </tr>
                 ))}
                 {meetings.length === 0 && (
                   <tr>
                     <td colSpan={4} className="px-4 py-4 text-center text-gray-500">
-                      No meetings yet
+                      No meetings scheduled yet
                     </td>
                   </tr>
                 )}
@@ -724,10 +791,10 @@ export default function ClientDetailPage({ baseUrl, showToast }) {
       {/* React Select custom styles */}
       <style jsx>{`
         .select__control {
-          @apply border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500;
+          @apply border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all;
         }
         .select__menu {
-          @apply border-gray-300 rounded-lg shadow-lg;
+          @apply border-gray-200 rounded-lg shadow-lg z-10;
         }
         .select__option--is-focused {
           @apply bg-indigo-50;
