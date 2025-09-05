@@ -134,11 +134,11 @@ export async function generateInvoicePDF(
       ["Date", dayjs(invoice.issueDate).format("DD MMM YYYY")],
       invoice.periodStart && invoice.periodEnd
         ? [
-            "Billing Period",
-            `${dayjs(invoice.periodStart).format("DD MMM YYYY")} – ${dayjs(
-              invoice.periodEnd
-            ).format("DD MMM YYYY")}`,
-          ]
+          "Billing Period",
+          `${dayjs(invoice.periodStart).format("DD MMM YYYY")} – ${dayjs(
+            invoice.periodEnd
+          ).format("DD MMM YYYY")}`,
+        ]
         : null,
       ["Billing Type", invoice.billingType === "MONTHLY" ? "Monthly" : "One Time"],
       [
@@ -146,8 +146,8 @@ export async function generateInvoicePDF(
         invoice.gstMode === "INCLUSIVE"
           ? "GST-Inclusive"
           : invoice.gstMode === "NOGST"
-          ? "No GST"
-          : "GST-Exclusive",
+            ? "No GST"
+            : "GST-Exclusive",
       ],
       invoice.gstMode !== "NOGST"
         ? ["GST Rate", `${pct(invoice.gstRate)}%`]
@@ -204,11 +204,11 @@ export async function generateInvoicePDF(
       const amt = computeLineAmount(li, invoice.gstMode);
       const rowData = hasTotalDays
         ? [
-            desc,
-            li.originalAmount ? `₹ ${currency(li.originalAmount)}` : "",
-            totalDays || "",
-            `₹ ${currency(amt)}`,
-          ]
+          desc,
+          li.originalAmount ? `₹ ${currency(li.originalAmount)}` : "",
+          totalDays || "",
+          `₹ ${currency(amt)}`,
+        ]
         : [desc, `₹ ${currency(amt)}`];
       const fill = rowIndex % 2 === 0 ? "#FFFFFF" : "#FAFAFA";
       y = drawRow(doc, left, y, tableWidths, rowData, {
@@ -582,4 +582,124 @@ export async function generateQuotationPDF({ quotation, client }, outPath) {
     }
   });
 }
+
+
+//Genrate Payment Pdf
+
+export const generatePaymentPDF = async (client, payment, invoice) => {
+  return new Promise((resolve, reject) => {
+    const dir = path.join("uploads", "payments");
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+
+    const filePath = path.join(dir, `${payment.receiptNo}.pdf`);
+    const doc = new PDFDocument({ margin: 50, size: "A4" });
+    const stream = fs.createWriteStream(filePath);
+    doc.pipe(stream);
+
+    // ----- Header -----
+    doc
+      .font("Helvetica-Bold")
+      .fontSize(22)
+      .fillColor("#333333")
+      .text("Payment Receipt", { align: "center" });
+
+    doc.moveDown(1.5);
+
+    // ----- Client Info -----
+    doc
+      .font("Helvetica-Bold")
+      .fontSize(12)
+      .fillColor("#555555")
+      .text("Client Details:", { underline: true });
+
+    doc.moveDown(0.3);
+    doc.font("Helvetica").fontSize(11).fillColor("#000000");
+    doc.text(`Name    : ${client.name}`);
+    if (client.email) doc.text(`Email   : ${client.email}`);
+    if (client.phone) doc.text(`Phone   : ${client.phone}`);
+    if (client.address) doc.text(`Address : ${client.address}`);
+
+    doc.moveDown(1);
+
+    // ----- Payment Info as Horizontal Table -----
+    doc
+      .font("Helvetica-Bold")
+      .fontSize(12)
+      .fillColor("#555555")
+      .text("Payment Details:", { underline: true });
+
+    doc.moveDown(0.5);
+
+    // Define headers and row
+    const headers = ["Receipt No", "Client", "Invoice", "Amount", "Mode", "Date"];
+    const row = [
+      payment.receiptNo,
+      client.name,
+      invoice ? invoice.invoiceNo : "-",
+      `₹${payment.amount.toFixed(2)}`,
+      payment.mode,
+      new Date(payment.date).toLocaleDateString(),
+    ];
+
+    if (payment.slipRef) {
+      headers.push("Reference");
+      row.push(payment.slipRef);
+    }
+    if (payment.notes) {
+      headers.push("Notes");
+      row.push(payment.notes);
+    }
+
+    const startX = doc.x;
+    const startY = doc.y;
+    const colCount = headers.length;
+    const pageWidth = doc.page.width - doc.options.margin * 2;
+    const colWidth = pageWidth / colCount;
+    const rowHeight = 25;
+
+    // Draw header background
+    doc.rect(startX, startY, pageWidth, rowHeight).fill("#f0f0f0");
+
+    // Header text (black)
+    doc.fillColor("#000000").font("Helvetica-Bold");
+    headers.forEach((header, i) => {
+      doc.text(header, startX + i * colWidth + 5, startY + 7, { width: colWidth - 10, align: "center" });
+    });
+
+    // Draw header border
+    doc.rect(startX, startY, pageWidth, rowHeight).stroke("#000000");
+
+    // Draw row background
+    const rowY = startY + rowHeight;
+    doc.rect(startX, rowY, pageWidth, rowHeight).fillOpacity(0.05).fill("#dddddd").fillOpacity(1);
+
+    // Row text (black)
+    doc.fillColor("#000000").font("Helvetica");
+    row.forEach((cell, i) => {
+      doc.text(cell, startX + i * colWidth + 5, rowY + 7, { width: colWidth - 10, align: "center" });
+    });
+
+    // Draw row border
+    doc.rect(startX, rowY, pageWidth, rowHeight).stroke("#000000");
+
+    doc.moveDown(3);
+
+    // ----- Footer -----
+    doc
+      .font("Helvetica-Oblique")
+      .fontSize(10)
+      .fillColor("#777777")
+      .text("Thank you for your payment!", { align: "center" });
+
+    doc.end();
+
+    stream.on("finish", () => resolve(filePath));
+    stream.on("error", reject);
+  });
+};
+
+
+
+
+
 

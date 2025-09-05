@@ -8,7 +8,9 @@ const PaymentSchema = new mongoose.Schema({
   mode: { type: String, enum: ['CASH','UPI','NEFT','IMPS','RTGS','CARD','CHEQUE','OTHER'], default: 'OTHER' },
   slipRef: String,              // payment slip number / reference
   notes: String,
-  attachmentPath: String        // uploaded slip image/pdf
+  attachmentPath: String ,       // uploaded slip image/pdf
+  receiptNo: { type: String, required: true, unique: true },
+
 }, { timestamps: true });
 
 export default mongoose.model('Payment', PaymentSchema);
